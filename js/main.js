@@ -4,14 +4,26 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
+// Mise à l'échelle entière (en pixels physiques) : chaque pixel du jeu couvre
+// exactement le même nombre de pixels de l'écran, donc tout reste net.
 function resize() {
   const hint = document.getElementById('hint');
-  const aw = window.innerWidth - 32;
-  const ah = window.innerHeight - 32 - (hint ? hint.offsetHeight + 12 : 0);
-  const s = Math.max(0.5, Math.min(aw / W, ah / H));
-  const scale = s >= 1 ? Math.floor(s) : s;
-  canvas.style.width = Math.floor(W * scale) + 'px';
-  canvas.style.height = Math.floor(H * scale) + 'px';
+  const dpr = window.devicePixelRatio || 1;
+  const cs = getComputedStyle(document.body);
+  const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const aw = (window.innerWidth - pad) * dpr;
+  const ah = (window.innerHeight - (hint ? hint.offsetHeight + 12 : 0)) * dpr;
+  let k = Math.floor(Math.min(aw / canvas.width, ah / canvas.height));
+  let w = canvas.width * k;
+  let h = canvas.height * k;
+  if (k < 1) {
+    // Fenêtre plus petite que le canvas : on réduit au mieux.
+    const f = Math.max(0.25, Math.min(aw / canvas.width, ah / canvas.height));
+    w = Math.floor(canvas.width * f);
+    h = Math.floor(canvas.height * f);
+  }
+  canvas.style.width = w / dpr + 'px';
+  canvas.style.height = h / dpr + 'px';
 }
 window.addEventListener('resize', resize);
 resize();

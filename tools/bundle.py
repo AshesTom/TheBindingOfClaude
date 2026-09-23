@@ -29,8 +29,8 @@ body {{
   overflow: hidden;
 }}
 canvas {{
-  image-rendering: pixelated;
   image-rendering: crisp-edges;
+  image-rendering: pixelated;
   background: #000;
   max-width: 100%;
   box-shadow: 0 0 48px rgba(217, 119, 87, 0.22);

@@ -12,6 +12,7 @@ class Enemy {
     this.flash = 0;
     this.spawnT = 0.6;
     this.dead = false;
+    this.ph = Math.random() * 6; // phase de respiration
     this.flying = false;
     this.kx = 0;
     this.ky = 0;
@@ -91,6 +92,14 @@ class Enemy {
     Sound.play('ebullet');
   }
 
+  // Étincelles qui convergent juste avant un tir : on voit l'attaque venir.
+  telegraph(lead, color) {
+    if (!this.tele && this.cd < lead) {
+      this.tele = true;
+      this.g.fx.converge(this.x, this.y - 4, 7, color, 14, lead);
+    }
+  }
+
   // Dessin générique : apparition, écrasement quand on est touché, respiration.
   drawSprite(ctx, name, ox = 0, oy = 0, o = {}) {
     let spawnK = 1;
@@ -101,8 +110,9 @@ class Enemy {
       fillEllipseHD(ctx, this.x, this.y + 2, 8 * (1 - spawnK) + 2, 3 * (1 - spawnK) + 1, '#a86ae8');
       ctx.restore();
     }
-    const k = this.sq || 0;
-    const breathe = this.boss ? 0 : Math.sin(this.t * 5 + this.x * 0.1) * 0.04;
+    // Écrasement en 3 paliers, respiration échantillonnée à ~10 i/s
+    const k = Math.ceil((this.sq || 0) * 3) / 3;
+    const breathe = this.boss ? 0 : Math.sin(poseT(this.t) * 5 + this.ph) * 0.04;
     let sx = (1 + 0.28 * k - breathe * 0.7) * (o.sx || 1);
     let sy = (1 - 0.24 * k + breathe) * (o.sy || 1);
     if (this.spawnT > 0) { sx *= spawnK; sy *= 0.3 + spawnK * 0.7; }
@@ -261,8 +271,10 @@ class Spambot extends Enemy {
     const hit = this.move(mx * this.speed * dt, my * this.speed * dt);
     if (hit.x || hit.y) this.strafe *= -1;
     this.cd -= dt;
+    this.telegraph(0.3, '#d95763');
     if (this.cd <= 0) {
       this.cd = rand(1.6, 2.2);
+      this.tele = false;
       if (this.g.floorNum >= 3) this.shootAt(95, 'eb', 0.25, 3);
       else this.shootAt(90);
     }
@@ -289,8 +301,10 @@ class Captcha extends Enemy {
 
   ai(dt) {
     this.cd -= dt;
+    this.telegraph(0.35, '#d77bba');
     if (this.cd <= 0) {
       this.cd = 2.3;
+      this.tele = false;
       const n = this.g.floorNum >= 3 ? 8 : 4;
       this.ring(n, 80, this.diag ? Math.PI / 4 : 0);
       this.diag = !this.diag;

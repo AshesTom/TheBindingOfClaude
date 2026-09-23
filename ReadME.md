@@ -81,7 +81,29 @@ tirant (avec un éclair), grimace quand il est touché et s'étire pendant le da
 Les ennemis s'écrasent quand on les frappe, se gonflent avant d'attaquer et laissent
 une tache au sol en mourant.
 
-## Contenu de la v0.6
+## Rendu 16 bits
+
+- **Pixels nets partout** : le canvas est agrandi d'un facteur entier (en pixels
+  physiques), sans lissage ; sprites, particules et écrasements sont calés sur
+  la grille, sans demi-pixel.
+- **Palette maîtresse** (`js/engine/palette.js`, base DawnBringer 32 + rampe
+  orange de Claude) : sprites, sols, portes, décors et illustrations y sont ramenés.
+- **Aucun dégradé** : l'éclairage et les halos sont faits de paliers tramés
+  (Bayer), les ondes de choc sont des cercles de pixels.
+- **Poses à ~10 i/s** : respiration, rebonds, reculs et flammes sont échantillonnés
+  comme une vraie animation de sprite, sur une boucle fixe à 60 Hz.
+- **Particules en pool** (`js/engine/particles.js`) : tableaux typés préalloués,
+  aucune allocation en jeu ; chaque étincelle passe du blanc à sa couleur puis au
+  sombre avant de disparaître. Braises de torches et de braseros.
+- **Artefact en 3 temps** : CHARGE (les étincelles convergent en spirale vers une
+  gemme au-dessus de Claude, qui s'étire), LANCER (explosion, onde de choc,
+  secousse de 1 à 2 pixels), RETOUR (Claude se repose). Un **liseré de lumière**
+  d'un pixel éclaire Claude depuis la gemme, et discrètement depuis la torche la
+  plus proche le reste du temps.
+- **Attaques télégraphiées** : spambots, captchas et boss rassemblent des
+  étincelles juste avant de tirer.
+
+## Contenu de la v0.7
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro

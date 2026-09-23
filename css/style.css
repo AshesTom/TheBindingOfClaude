@@ -14,8 +14,8 @@ body {
 }
 
 canvas {
-  image-rendering: pixelated;
   image-rendering: crisp-edges;
+  image-rendering: pixelated;
   background: #000;
   box-shadow: 0 0 40px rgba(217, 119, 87, 0.15);
   outline: none;

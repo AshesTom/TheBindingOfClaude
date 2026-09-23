@@ -118,6 +118,7 @@ function outlinePass(c, color = OUTLINE) {
 }
 
 function registerHD(name, c) {
+  quantizeCanvas(c);
   SPR[name] = { img: c, white: silhouette(c, '#ffffff'), w: c.width / HD, h: c.height / HD, res: HD };
   return SPR[name];
 }
@@ -1090,6 +1091,7 @@ function doorCanvas(themeId, kind, state) {
     E(x, s(24), s(5), s(3), s(3), OUTLINE);
     E(x, s(24), s(5), s(2), s(2), '#f8d048');
   }
+  quantizeCanvas(c);
   doorCache.set(key, c);
   return c;
 }
@@ -1126,6 +1128,7 @@ function panelCanvas(w, h, tint = 'dark') {
     R(x, cx - 3, cy - 1, 6, 2, '#c8a070');
     R(x, cx - 1, cy - 1, 2, 2, '#fff0c0');
   }
+  quantizeCanvas(c, true);
   panelCache.set(key, c);
   return c;
 }

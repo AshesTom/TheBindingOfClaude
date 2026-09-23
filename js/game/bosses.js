@@ -74,6 +74,7 @@ class BossBug extends Boss {
             this.state = 'tell';
             this.st = 0.65;
             this.cdir = norm(p.x - this.x, p.y - this.y);
+            g.fx.converge(this.x, this.y - 4, 16, '#ac3232', 26, 0.6);
             Sound.play('charge');
           }
         }
@@ -199,6 +200,7 @@ class BossHallu extends Boss {
           this.y = pos.y;
           this.state = 'appear';
           this.st = 0.35;
+          g.fx.converge(this.x, this.y - 6, 14, '#76428a', 24, 0.35);
         }
         break;
       case 'appear':
@@ -325,6 +327,7 @@ class BossSam extends Boss {
         if (this.st <= 0) {
           const a = this.pickAttack(['funding', 'spam', 'scaling', 'pivot', 'hype']);
           this.state = a;
+          g.fx.converge(this.x, this.y - 10, 18, '#5b6ee1', 30, 0.35);
           this.shots = 0;
           this.st = a === 'scaling' ? 2.8 : a === 'pivot' ? 0.7 : 0.35;
           this.shout({ funding: 'LEVÉE DE FONDS !', spam: 'GPT-SPAM !', scaling: 'SCALING !', pivot: 'PIVOT !', hype: 'HYPE !' }[a]);

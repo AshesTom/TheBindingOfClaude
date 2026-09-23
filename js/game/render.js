@@ -225,7 +225,7 @@ function renderRoomBG(room, theme, opts = {}) {
     Font.draw(x, opts.label, 120, 108, 'rgba(255,240,220,0.14)', { align: 'center' });
   }
   x.restore();
-  return c;
+  return quantizeCanvas(c);
 }
 
 const TORCH_COLORS = {
@@ -238,7 +238,7 @@ const TORCH_COLORS = {
 // Flamme animée d'une torche.
 function drawTorchFlame(ctx, tc, t) {
   const [c1, c2] = TORCH_COLORS[tc.kind];
-  const f = Math.sin(t * 12 + tc.ph) * 0.8;
+  const f = Math.round(Math.sin(poseT(t) * 12 + tc.ph) * 2) * 0.5;
   fillEllipseHD(ctx, tc.x, tc.y - 2 + f * 0.3, 2.5, 3.5 + f * 0.5, c1);
   fillEllipseHD(ctx, tc.x, tc.y - 1.5, 1.2, 2, c2);
 }
@@ -323,7 +323,7 @@ function drawBasement(ctx, t) {
       }
     }
     x.putImageData(img, 0, 0);
-    basementCache = c;
+    basementCache = quantizeCanvas(c);
   }
   ctx.drawImage(basementCache, 0, 0, W, H);
   ctx.save();

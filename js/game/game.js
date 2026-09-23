@@ -16,6 +16,7 @@ class GameScene {
     this.enemies = [];
     this.spawnQueue = [];
     this.particles = [];
+    this.fx = new FxPool();
     this.familiars = [];
     this.seenItems = new Set();
     this.shake = 0;
@@ -200,6 +201,7 @@ class GameScene {
     this.enemies = [];
     this.spawnQueue = [];
     this.particles = [];
+    this.fx.clear();
 
     if (dir === 'up') { p.x = 120; p.y = ROOM_PX_H - TILE - 9; }
     else if (dir === 'down') { p.x = 120; p.y = TILE + 9; }
@@ -583,11 +585,7 @@ class GameScene {
 
   // --------------------------------------------------------------- Effets
   burst(x, y, n, c, speed = 60, life = 0.4) {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const s = rand(speed * 0.3, speed);
-      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(life * 0.5, life), max: life, c, s: Math.random() < 0.3 ? 2 : 1 });
-    }
+    this.fx.burst(x, y, n, c, speed, life);
   }
 
   floatText(x, y, text, c) {
@@ -884,14 +882,18 @@ class GameScene {
     for (const pt of this.particles) {
       pt.life -= dt;
       if (pt.type === 'text') pt.y += pt.vy * dt;
-      else if (pt.type !== 'ring' && pt.type !== 'flash') {
-        pt.x += pt.vx * dt;
-        pt.y += pt.vy * dt;
-        pt.vx *= Math.pow(0.05, dt);
-        pt.vy *= Math.pow(0.05, dt);
+    }
+    if (this.particles.length) this.particles = this.particles.filter((pt) => pt.life > 0);
+    this.fx.update(dt);
+    // Braises des torches et des braseros
+    for (const tc of this.room.torches || []) {
+      if (Math.random() < dt * 2.5) this.fx.ember(tc.x + rand(-1, 1), tc.y - 2, rand(0.4, 0.8), rampFor(TORCH_COLORS[tc.kind][0]));
+    }
+    if (this.hub) {
+      for (const pr of this.hubProps) {
+        if (pr.fire && Math.random() < dt * 6) this.fx.ember(pr.x + rand(-3, 3), pr.y - 12, rand(0.5, 1), rampFor('#f8a040'));
       }
     }
-    this.particles = this.particles.filter((pt) => pt.life > 0);
   }
 
   updatePause() {
@@ -928,8 +930,10 @@ class GameScene {
   draw(ctx) {
     rect(ctx, 0, 0, W, H, '#0b0710');
     ctx.save();
-    const sx = this.shake > 0 ? Math.round(rand(-this.shake, this.shake) * 0.5) : 0;
-    const sy = this.shake > 0 ? Math.round(rand(-this.shake, this.shake) * 0.5) : 0;
+    // Tremblement d'écran sobre : 1 à 2 pixels, jamais plus.
+    const amp = this.shake > 5 ? 2 : this.shake > 0 ? 1 : 0;
+    const sx = amp ? Math.round(rand(-amp, amp)) : 0;
+    const sy = amp ? Math.round(rand(-amp, amp)) : 0;
     ctx.translate(RX + sx, RY + sy);
     this.drawWorld(ctx);
     ctx.restore();
@@ -1013,6 +1017,12 @@ class GameScene {
 
     this.drawLighting(ctx);
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, ROOM_PX_W, ROOM_PX_H);
+    ctx.clip();
+    this.fx.draw(ctx);
+    ctx.restore();
     for (const pt of this.particles) {
       const a = Math.max(0, pt.life / pt.max);
       if (pt.type === 'text') {
@@ -1020,23 +1030,16 @@ class GameScene {
       } else if (pt.type === 'flash') {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        fillEllipseHD(ctx, pt.x, pt.y, 4 * a + 1, 4 * a + 1, '#ffb070');
-        fillEllipseHD(ctx, pt.x, pt.y, 2 * a + 0.5, 2 * a + 0.5, '#ffffff');
+        fillEllipseHD(ctx, pt.x, pt.y, Math.ceil(a * 2) * 2 + 1, Math.ceil(a * 2) * 2 + 1, '#df7126');
+        fillEllipseHD(ctx, pt.x, pt.y, Math.ceil(a * 2) + 0.5, Math.ceil(a * 2) + 0.5, '#ffffff');
         ctx.restore();
       } else if (pt.type === 'ring') {
+        // Onde de choc : cercle de pixels qui descend sa rampe de palette
         const rr = lerp(pt.r1, pt.r0, a);
-        ctx.save();
-        ctx.globalAlpha = a;
-        ctx.strokeStyle = pt.c;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(Math.round(pt.x), Math.round(pt.y), rr, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      } else {
-        ctx.globalAlpha = Math.min(1, a * 1.5);
-        rect(ctx, pt.x, pt.y, pt.s, pt.s, pt.c);
-        ctx.globalAlpha = 1;
+        const ramp = RAMPS[rampFor(pt.c)];
+        const ci = Math.min(ramp.length - 1, Math.floor((1 - a) * ramp.length));
+        pixelCircle(ctx, pt.x, pt.y, rr, ramp[ci], 1);
+        if (rr > 3) pixelCircle(ctx, pt.x, pt.y, rr - 1, ramp[Math.min(ramp.length - 1, ci + 1)], 1);
       }
     }
   }
@@ -1057,12 +1060,11 @@ class GameScene {
     x.fillStyle = `rgba(6,2,14,${dark})`;
     x.fillRect(0, 0, lc.width, lc.height);
     x.globalCompositeOperation = 'destination-out';
+    // Lumières en paliers tramés (aucun dégradé) calées sur la grille.
     const light = (lx, ly, r, a = 1) => {
-      const g = x.createRadialGradient(lx, ly, 0, lx, ly, r);
-      g.addColorStop(0, `rgba(0,0,0,${a})`);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = g;
-      x.fillRect(lx - r, ly - r, r * 2, r * 2);
+      const st = lightStamp(r, a);
+      const h = (st.width - 1) / 2;
+      x.drawImage(st, Math.round(lx) - h, Math.round(ly) - h);
     };
     const p = this.player;
     light(p.x, p.y - 4, 80);
@@ -1078,9 +1080,7 @@ class GameScene {
       light(120, 28, 30, 0.6);
     }
     for (const tc of this.room.torches || []) light(tc.x, tc.y + 4, 42, 0.75);
-    ctx.imageSmoothingEnabled = true;
     ctx.drawImage(lc, 0, 0);
-    ctx.imageSmoothingEnabled = false;
 
     // Lueurs additives
     ctx.save();
@@ -1242,7 +1242,7 @@ class GameScene {
       const s = SPR[pr.spr];
       drawSpr(ctx, pr.spr, pr.x - s.w / 2, pr.y - s.h / 2);
       if (pr.fire) {
-        const f = Math.sin(this.t * 10 + pr.x) * 1;
+        const f = Math.round(Math.sin(poseT(this.t) * 10 + pr.x) * 2) * 0.5;
         fillEllipseHD(ctx, pr.x, pr.y - 8 + f * 0.3, 5, 6 + f, '#ff7a20');
         fillEllipseHD(ctx, pr.x, pr.y - 7, 3, 4, '#ffd060');
       }
@@ -1250,11 +1250,8 @@ class GameScene {
         for (let i = 0; i < 3; i++) {
           const r = ((this.t * 6 + i * 7) % 20);
           ctx.save();
-          ctx.globalAlpha = 0.5 * (1 - r / 20);
-          ctx.strokeStyle = '#c070a0';
-          ctx.beginPath();
-          ctx.ellipse(pr.x, pr.y, r * 0.9, r * 0.4, 0, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.globalAlpha = Math.ceil(2 * (1 - r / 20)) / 4;
+          pixelEllipse(ctx, pr.x, pr.y, r * 0.9, Math.max(1, r * 0.4), '#d77bba', 1);
           ctx.restore();
         }
       }

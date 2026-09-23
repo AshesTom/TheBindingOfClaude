@@ -195,14 +195,25 @@ function drawSprSquash(ctx, name, cx, by, sx = 1, sy = 1, o = {}) {
     if (!s.tints[o.tint]) s.tints[o.tint] = silhouette(s.img, o.tint);
     img = s.tints[o.tint];
   }
+  // Tout est calé sur la grille HD (1 px réel) : dimensions et position entières,
+  // pour qu'aucun pixel ne tombe entre deux.
+  const wh = Math.max(1, Math.round(s.w * sx * 2));
+  const hh = Math.max(1, Math.round(s.h * sy * 2));
+  const px = Math.round(cx * 2);
+  const py = Math.round(by * 2);
+  const left = -(wh >> 1);
   ctx.save();
   if (o.alpha !== undefined) ctx.globalAlpha *= o.alpha;
-  // Pas d'un demi-pixel logique = un pixel réel : le sprite reste net.
-  ctx.translate(Math.round(cx * 2) / 2, Math.round(by * 2) / 2);
-  const w = Math.round(s.w * sx * 2) / 2;
-  const h = Math.round(s.h * sy * 2) / 2;
+  ctx.translate(px / 2, py / 2);
   if (o.flip) ctx.scale(-1, 1);
-  ctx.drawImage(img, -Math.round(w) / 2, -h, w, h);
+  ctx.drawImage(img, left / 2, -hh / 2, wh / 2, hh / 2);
+  if (o.rim && o.rim.a > 0 && !o.flash) {
+    // Liseré de lumière : paliers d'intensité quantifiés (pas de fondu continu)
+    let d = o.rim.dir;
+    if (o.flip) d = (12 - d) % 8;
+    ctx.globalAlpha *= Math.min(1, Math.ceil(o.rim.a * 3) / 3);
+    ctx.drawImage(rimTinted(s, d, o.rim.color || '#ffffff'), left / 2, -hh / 2, wh / 2, hh / 2);
+  }
   ctx.restore();
 }
 

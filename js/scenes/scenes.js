@@ -33,16 +33,15 @@ function menuNav(scene, count) {
   if (Input.pressed('uiDown')) { scene.sel = (scene.sel + 1) % count; Sound.play('select'); }
 }
 
-// Halo lumineux doux (additif).
+// "r,g,b" ou "rgba(r,g,b,A)" -> couleur de la palette.
+function rgbToPal(str) {
+  const m = str.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  return MASTER_PALETTE[nearestPal(+m[1], +m[2], +m[3])];
+}
+
+// Halo lumineux (additif, tramé : aucun dégradé).
 function drawSpot(ctx, x, y, r, color, a = 0.25) {
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, color.replace('A', a));
-  g.addColorStop(1, color.replace('A', 0));
-  ctx.fillStyle = g;
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  ctx.restore();
+  drawGlow(ctx, x, y, Math.round(r / 4) * 4, rgbToPal(color), a * 1.2);
 }
 
 // --------------------------------------------------------------- Démarrage
@@ -80,6 +79,7 @@ function sceneBG(key, fn) {
   if (!sceneCache.has(key)) {
     const c = newCanvas(400, 200);
     fn(c.getContext('2d'));
+    quantizeCanvas(c);
     sceneCache.set(key, c);
   }
   return sceneCache.get(key);
@@ -103,13 +103,13 @@ function ditherGrad(x, X, Y, w, h, stops) {
 }
 
 function glowHD(ctx, x, y, r, rgbStr, a) {
+  // Rayon arrondi par paliers : peu de disques différents à mettre en cache.
+  const R = Math.max(4, Math.round(r / 8) * 8);
+  const c = ditherDisc(R, rgbToPal(rgbStr));
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(${rgbStr},${a})`);
-  g.addColorStop(1, `rgba(${rgbStr},0)`);
-  ctx.fillStyle = g;
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.globalAlpha *= Math.min(1, a * 1.2);
+  ctx.drawImage(c, Math.round(x) - R, Math.round(y) - R);
   ctx.restore();
 }
 
@@ -474,7 +474,7 @@ class TitleScene {
     rect(ctx, 238, 67, 4, 4, '#c8c0c8');
     drawInkMenu(ctx, this.items, this.sel, 240, this.items.length > 4 ? 80 : 84, this.t, this.items.length > 4 ? 16 : 18);
 
-    Font.draw(ctx, 'V0.2', 316, 170, '#6a5040', { align: 'right' });
+    Font.draw(ctx, 'V0.7', 316, 170, '#6a5040', { align: 'right' });
     const wins = Meta.data.wins;
     if (wins > 0) Font.draw(ctx, 'VICTOIRES : ' + wins, 4, 170, ['#fff4a0', '#f8d048'], { outline: '#1a0c08' });
   }
