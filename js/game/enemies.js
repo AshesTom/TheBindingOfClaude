@@ -335,7 +335,7 @@ class Ghost extends Enemy {
     ctx.globalAlpha = this.alpha * 0.35;
     fillEllipse(ctx, this.x, this.y + 6, 5, 1, '#000');
     ctx.restore();
-    this.drawSprite(ctx, 'ghost', 0, Math.round(Math.sin(this.t * 3) * 2) - 2);
+    this.drawSprite(ctx, Math.floor(this.t * 4) % 2 ? 'ghost' : 'ghost_b', 0, Math.round(Math.sin(this.t * 3) * 2) - 2);
   }
 }
 

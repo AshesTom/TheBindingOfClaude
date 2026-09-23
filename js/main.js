@@ -51,6 +51,7 @@ const App = {
   },
 
   draw() {
+    ctx.setTransform(HD, 0, 0, HD, 0, 0);
     ctx.imageSmoothingEnabled = false;
     this.scene.draw(ctx);
     if (Sound.muted) Font.draw(ctx, 'SON COUPÉ', W - 4, H - 10, '#4a4452', { align: 'right' });

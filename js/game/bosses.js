@@ -129,48 +129,10 @@ class BossBug extends Boss {
   }
 
   drawBody(ctx, portrait = false) {
-    const f = this.flash > 0;
-    const C = (c) => (f ? '#ffffff' : c);
-    let x = Math.round(this.x);
-    let y = Math.round(this.y) - 6;
+    let x = this.x;
     if (this.state === 'tell' && !portrait) x += Math.round(Math.sin(this.t * 60) * 1.5);
-    const walk = Math.floor(this.t * (this.state === 'charge' ? 20 : 8)) % 2;
-    const body = this.rage ? '#a03040' : '#3a8a3a';
-    const bodyL = this.rage ? '#e0505a' : '#78d05a';
-    // Pattes
-    for (let i = 0; i < 3; i++) {
-      const ly = y - 4 + i * 6 + (walk === i % 2 ? 1 : -1);
-      rect(ctx, x - 19, ly, 6, 2, C('#1a1016'));
-      rect(ctx, x + 13, ly, 6, 2, C('#1a1016'));
-      rect(ctx, x - 20, ly + 2, 2, 3, C('#1a1016'));
-      rect(ctx, x + 18, ly + 2, 2, 3, C('#1a1016'));
-    }
-    // Corps
-    fillEllipse(ctx, x, y, 15, 12, C('#1a1016'));
-    fillEllipse(ctx, x, y, 14, 11, C(body));
-    fillEllipse(ctx, x - 4, y - 4, 7, 5, C(bodyL));
-    rect(ctx, x, y - 11, 1, 22, C('#1a1016'));
-    // Taches "glitch"
-    rect(ctx, x - 9, y + 2, 3, 2, C('#f070b8'));
-    rect(ctx, x + 6, y - 5, 4, 2, C('#7fe8f0'));
-    rect(ctx, x + 4, y + 5, 2, 2, C('#f8d048'));
-    // Tête
-    fillEllipse(ctx, x, y + 11, 9, 6, C('#1a1016'));
-    fillEllipse(ctx, x, y + 11, 8, 5, C('#2a2130'));
-    // Yeux
-    rect(ctx, x - 6, y + 9, 4, 3, C('#e8404a'));
-    rect(ctx, x + 2, y + 9, 4, 3, C('#e8404a'));
-    rect(ctx, x - 5, y + 10, 1, 1, C('#ffffff'));
-    rect(ctx, x + 3, y + 10, 1, 1, C('#ffffff'));
-    // Mandibules
-    const m = this.state === 'spit' || this.state === 'tell' ? 2 : 0;
-    rect(ctx, x - 7 - m, y + 15, 3, 4, C('#d8d0c8'));
-    rect(ctx, x + 4 + m, y + 15, 3, 4, C('#d8d0c8'));
-    // Antennes
-    rect(ctx, x - 5, y - 16, 1, 5, C('#1a1016'));
-    rect(ctx, x + 4, y - 16, 1, 5, C('#1a1016'));
-    rect(ctx, x - 6, y - 17, 2, 2, C('#f8d048'));
-    rect(ctx, x + 4, y - 17, 2, 2, C('#f8d048'));
+    const f = Math.floor(this.t * (this.state === 'charge' ? 20 : 8)) % 2;
+    drawSprC(ctx, `bb_${this.rage ? 1 : 0}_${portrait ? 0 : f}`, x, this.y - 6, { flash: this.flash > 0 });
   }
 }
 
@@ -301,40 +263,20 @@ class BossHallu extends Boss {
 
   drawBody(ctx, portrait = false) {
     const f = this.flash > 0;
-    const C = (c) => (f ? '#ffffff' : c);
-    const x = Math.round(this.x);
-    const y = Math.round(this.y + Math.sin(this.t * 2) * 2) - 4;
-    const main = this.rage ? '#c050a0' : '#8a4ad0';
-    const dark = this.rage ? '#701850' : '#4a2080';
-    // Tentacules
-    for (let i = 0; i < 5; i++) {
-      const tx = x - 12 + i * 6;
-      for (let j = 0; j < 7; j++) {
-        const wob = Math.round(Math.sin(this.t * 4 + i + j * 0.6) * 2);
-        rect(ctx, tx + wob, y + 10 + j * 2, 3, 2, C(j % 2 ? dark : main));
-      }
-    }
-    // Nuage
-    const pulse = Math.round(Math.sin(this.t * 3));
-    fillEllipse(ctx, x, y, 17 + pulse, 14, C('#1a1016'));
-    fillEllipse(ctx, x - 9, y - 7, 8, 7, C(main));
-    fillEllipse(ctx, x + 9, y - 6, 8, 7, C(main));
-    fillEllipse(ctx, x, y, 16 + pulse, 13, C(main));
-    fillEllipse(ctx, x - 5, y - 6, 6, 4, C('#c890f0'));
-    // Oeil géant
-    fillEllipse(ctx, x, y + 1, 10, 7, C('#1a1016'));
-    fillEllipse(ctx, x, y + 1, 9, 6, C('#ffffff'));
+    const x = this.x;
+    const y = this.y + (portrait ? 0 : Math.sin(this.t * 2) * 2) - 4;
+    const rage = this.rage && !portrait;
+    drawSprC(ctx, `bh_${rage ? 1 : 0}_${Math.floor(this.t * 4) % 2}`, x, y + 6, { flash: f });
+    if (f) return;
     const p = this.g.player;
     const n = portrait ? { x: -1, y: 0 } : norm(p.x - x, p.y - y);
-    const ix = x + Math.round(n.x * 4);
-    const iy = y + 1 + Math.round(n.y * 2);
-    fillEllipse(ctx, ix, iy, 4, 4, C(this.rage ? '#e8404a' : '#4aa0f0'));
-    fillEllipse(ctx, ix, iy, 2, 2, C('#1a1016'));
-    rect(ctx, ix - 2, iy - 2, 1, 1, C('#ffffff'));
-    // Glitch
-    if (!f && Math.random() < 0.08) {
-      rect(ctx, x - 18, y + randInt(-10, 10), 36, 1, '#7fe8f0');
-    }
+    const ix = x + n.x * 4;
+    const iy = y + 4 + n.y * 2;
+    fillEllipseHD(ctx, ix, iy, 4, 4, rage ? '#e8404a' : '#4aa0f0');
+    fillEllipseHD(ctx, ix + 0.5, iy + 0.5, 3, 3, rage ? '#a02030' : '#2a60c0');
+    fillEllipseHD(ctx, ix, iy, 1.5, 1.5, '#1a0e10');
+    fillEllipseHD(ctx, ix - 1.5, iy - 1.5, 0.5, 0.5, '#ffffff');
+    if (Math.random() < 0.06) rect(ctx, x - 18, y + randInt(-10, 10), 36, 1, '#7fe8f0');
   }
 }
 
@@ -475,50 +417,39 @@ class BossSam extends Boss {
 
   drawBody(ctx, portrait = false) {
     const f = this.flash > 0;
-    const C = (c) => (f ? '#ffffff' : c);
-    const x = Math.round(this.x);
-    const y = Math.round(this.y + (portrait ? 0 : Math.sin(this.t * 2.5) * 2));
+    const x = this.x;
+    const y = this.y + (portrait ? 0 : Math.sin(this.t * 2.5) * 2);
     const rage = this.phase2 && !portrait;
     // Réacteurs
     const fl = Math.floor(this.t * 20) % 2;
     for (const s of [-10, 10]) {
-      rect(ctx, x + s - 2, y + 9, 5, 4 + fl * 2, C('#f8a040'));
-      rect(ctx, x + s - 1, y + 9, 3, 6 + fl * 2, C('#fff0a0'));
+      fillEllipseHD(ctx, x + s, y + 11 + fl, 2.5, 4 + fl, f ? '#fff' : '#f8a040');
+      fillEllipseHD(ctx, x + s, y + 10 + fl, 1.5, 3, f ? '#fff' : '#fff0a0');
     }
-    // Canons latéraux
-    for (const s of [-1, 1]) {
-      const cx = x + s * 21;
-      rect(ctx, cx - 4, y - 3, 9, 8, C('#12101a'));
-      rect(ctx, cx - 3, y - 2, 7, 6, C('#4a5268'));
-      rect(ctx, cx - 3, y - 2, 7, 2, C('#8a96b0'));
-      rect(ctx, cx + s * 3 - 1, y, 3, 3, C('#12101a'));
-    }
-    // Coque
-    fillEllipse(ctx, x, y + 2, 20, 10, C('#12101a'));
-    fillEllipse(ctx, x, y + 2, 19, 9, C('#3a4256'));
-    fillEllipse(ctx, x, y, 18, 7, C('#5a6680'));
-    fillEllipse(ctx, x - 3, y - 2, 12, 4, C('#8a96b0'));
-    rect(ctx, x - 10, y - 4, 6, 1, C('#d0d8e8'));
-    // Bande de voyants
-    for (let i = -14; i <= 14; i += 4) {
-      const on = (Math.floor(this.t * 8) + i) % 3 === 0;
-      rect(ctx, x + i, y + 5, 2, 2, C(rage ? (on ? '#ff4050' : '#601018') : on ? '#60e0ff' : '#1a4060'));
-    }
-    // Logo sur la coque
-    rect(ctx, x - 3, y + 1, 6, 1, C('#1a1016'));
     // Dôme + Sam
     const sam = SPR.sam;
-    fillEllipse(ctx, x, y - 11, 12, 11, C('#12101a'));
-    fillEllipse(ctx, x, y - 11, 11, 10, C('#1a3040'));
+    fillEllipseHD(ctx, x, y - 9, 11, 11, OUTLINE);
+    fillEllipseHD(ctx, x, y - 9, 10, 10, f ? '#fff' : '#1a3040');
     const bob = portrait ? 0 : Math.round(Math.sin(this.t * 4));
-    ctx.drawImage(f ? sam.white : sam.img, 0, 0, 12, 14, x - 6, y - 20 + bob, 12, 14);
+    const cropH = Math.round(sam.img.height * 0.62);
+    ctx.drawImage(f ? sam.white : sam.img, 0, 0, sam.img.width, cropH, x - sam.w / 2, y - 19 + bob, sam.w, cropH / HD);
     ctx.save();
-    ctx.globalAlpha = 0.3;
-    fillEllipse(ctx, x, y - 11, 11, 10, rage ? '#ff6070' : '#60c0ff');
+    ctx.globalAlpha = 0.28;
+    fillEllipseHD(ctx, x, y - 9, 10, 10, rage ? '#ff6070' : '#60c0ff');
+    ctx.globalAlpha = 0.9;
+    fillEllipseHD(ctx, x - 5, y - 14, 1.5, 2.5, '#ffffff');
     ctx.restore();
-    rect(ctx, x - 7, y - 18, 1, 4, '#ffffff');
-    rect(ctx, x - 6, y - 19, 2, 1, '#ffffff');
-    rect(ctx, x + 6, y - 8, 1, 2, 'rgba(255,255,255,0.6)');
+    // Coque
+    drawSprC(ctx, `mech_${rage ? 1 : 0}`, x, y + 3, { flash: f });
+    if (f) return;
+    ctx.save();
+    ctx.scale(0.5, 0.5);
+    for (let i = -14; i <= 14; i += 4) {
+      const on = (Math.floor(this.t * 8) + i + 20) % 3 === 0;
+      ctx.fillStyle = rage ? (on ? '#ff4050' : '#601018') : on ? '#60e0ff' : '#1a4060';
+      ctx.fillRect(Math.round((x + i) * 2), Math.round((y + 8) * 2), 3, 3);
+    }
+    ctx.restore();
   }
 }
 

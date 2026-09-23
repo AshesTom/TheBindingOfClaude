@@ -29,7 +29,7 @@ npx http-server .   # puis http://localhost:8080
 | Pause         | Échap / P                  | Start              |
 | Couper le son | M                          |                    |
 
-## Contenu de la v0.2
+## Contenu de la v0.3
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro
@@ -51,10 +51,10 @@ npx http-server .   # puis http://localhost:8080
   spambots, captchas-tourelles, hallucinations qui se téléportent
 - Écran « VS » avant les boss, mini-carte, écran de game over et de victoire avec
   statistiques de la partie
-- **Rendu 16/32 bits** : ombrage automatique des sprites en rampes de couleurs,
+- **Rendu « HD pixelisé » façon Isaac** (résolution interne 2x) : personnages et ennemis repeints avec contour épais et ombrage doux, portes en arche (bois, cadenas, crâne du boss), illustrations HD de l'intro,
   sols et murs texturés avec tramage, éclairage dynamique et lueurs additives
-- **Menus façon Isaac** : sous-sol sombre, feuilles de papier déchiré écrites à
-  l'encre, avis de décès qui montre l'ennemi responsable
+- **Menus** : sous-sol sombre, panneaux sombres ornés,
+  avis de décès qui montre l'ennemi responsable
 - Musique chiptune et effets sonores **synthétisés en direct** (WebAudio), sans
   aucun fichier audio
 

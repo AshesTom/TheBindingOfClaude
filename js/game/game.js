@@ -752,7 +752,7 @@ class GameScene {
   drawWorld(ctx) {
     const r = this.room;
     const th = this.floorDef.theme;
-    ctx.drawImage(r.bg, 0, 0);
+    ctx.drawImage(r.bg, 0, 0, ROOM_PX_W, ROOM_PX_H);
     // LEDs clignotantes (ferme de serveurs)
     if (th.id === 2) {
       for (let i = 0; i < 6; i++) {
@@ -859,7 +859,9 @@ class GameScene {
     for (const e of this.enemies) if (e.boss) light(e.x, e.y, 50, 0.6);
     for (const pd of this.room.pedestals) if (!pd.taken) light(pd.x, pd.y - 6, 30, 0.8);
     if (this.room.trapdoor) light(this.room.trapdoor.x, this.room.trapdoor.y, 26, 0.7);
+    ctx.imageSmoothingEnabled = true;
     ctx.drawImage(lc, 0, 0);
+    ctx.imageSmoothingEnabled = false;
 
     // Lueurs additives
     ctx.save();
@@ -881,7 +883,7 @@ class GameScene {
 
   drawVendor(ctx, v) {
     drawShadow(ctx, v.x, v.y + 4, 6, 2);
-    drawSpr(ctx, 'vendor', v.x - 6, v.y - 10 + Math.round(Math.sin(this.t * 2)));
+    drawSprC(ctx, 'vendor', v.x, v.y - 5 + Math.round(Math.sin(this.t * 2)));
     Font.draw(ctx, 'API STORE', v.x, v.y - 22, '#78d05a', { align: 'center', outline: '#1a1016' });
   }
 
@@ -890,14 +892,14 @@ class GameScene {
     // Coeurs
     const total = Math.ceil(p.maxHp / 2);
     for (let i = 0; i < total; i++) {
-      const x = 4 + (i % 6) * 8;
-      const y = 4 + Math.floor(i / 6) * 8;
+      const x = 3 + (i % 6) * 9;
+      const y = 3 + Math.floor(i / 6) * 9;
       const v = p.hp - i * 2;
       const name = v >= 2 ? 'heart_full' : v === 1 ? 'heart_half' : 'heart_empty';
       const pulse = p.hp <= 2 && v > 0 && Math.floor(this.t * 4) % 2 ? 1 : 0;
       drawSpr(ctx, name, x, y - pulse);
     }
-    if (p.shieldUp) drawSpr(ctx, 'heart_shield', 4 + (total % 6) * 8, 4 + Math.floor(total / 6) * 8);
+    if (p.shieldUp) drawSpr(ctx, 'heart_shield', 3 + (total % 6) * 9, 3 + Math.floor(total / 6) * 9);
 
     // Pièces / clés
     const numCol = ['#ffffff', '#fff4e0', '#d8c8b8', '#b0a0a0'];
@@ -1058,7 +1060,7 @@ class GameScene {
     rect(ctx, 0, by + 90, W, 2, '#f05060');
     // Claude
     const cx = lerp(-70, 36, slide);
-    drawSpr(ctx, 'claude_right_0', cx, by + 20, { scale: 3 });
+    drawSpr(ctx, 'claudeXXL_right_0', cx + 3, by + 24);
     Font.draw(ctx, 'CLAUDE', cx + 30, by + 8, ['#ffd8c4', '#f2a88a', '#d97757'], { align: 'center', outline: '#1a1016' });
     // VS
     if (t > 0.3) Font.draw(ctx, 'VS', 160, by + 30, ['#ffffff', '#fff4a0', '#f8d048', '#e8404a'], { align: 'center', scale: 3, outline: '#1a1016' });
@@ -1125,12 +1127,12 @@ class GameScene {
     Font.draw(ctx, 'PAUSE', 160, 16, INK_RED, { align: 'center', scale: 2 });
     // Statistiques
     const lines = [
-      ['DÉGÂTS', s.dmg.toFixed(1), '#a8281c'],
-      ['CADENCE', (1 / s.fireDelay).toFixed(1) + '/S', '#b86a10'],
-      ['VITESSE', Math.round(s.speed), '#2a6a9a'],
-      ['PORTÉE', Math.round(s.range * s.shotSpeed), '#4a7a2a'],
-      ['TIRS', s.shots, '#6a3a8a'],
-      ['ESQUIVE', Math.round(s.dodge * 100) + '%', '#2a7a7a'],
+      ['DÉGÂTS', s.dmg.toFixed(1), '#ff6050'],
+      ['CADENCE', (1 / s.fireDelay).toFixed(1) + '/S', '#f0a040'],
+      ['VITESSE', Math.round(s.speed), '#60b0f0'],
+      ['PORTÉE', Math.round(s.range * s.shotSpeed), '#80d060'],
+      ['TIRS', s.shots, '#b080f0'],
+      ['ESQUIVE', Math.round(s.dodge * 100) + '%', '#50d0d0'],
     ];
     Font.draw(ctx, 'STATISTIQUES', 32, 38, INK);
     rect(ctx, 32, 47, 70, 1, INK_SOFT);

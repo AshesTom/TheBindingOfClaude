@@ -48,12 +48,45 @@ function fillEllipse(ctx, cx, cy, rx, ry, color) {
   }
 }
 
+// Ellipse dessinée à la résolution HD (2x) : contours plus fins.
+function fillEllipseHD(ctx, cx, cy, rx, ry, color) {
+  ctx.save();
+  ctx.scale(0.5, 0.5);
+  fillEllipse(ctx, cx * 2, cy * 2, Math.max(1, Math.round(rx * 2)), Math.max(1, Math.round(ry * 2)), color);
+  ctx.restore();
+}
+
 // Ombre au sol sous une entité.
 function drawShadow(ctx, x, y, rx, ry = 2) {
   ctx.save();
-  ctx.globalAlpha = 0.35;
-  fillEllipse(ctx, x, y, rx, ry, '#000');
+  ctx.globalAlpha *= 0.35;
+  fillEllipseHD(ctx, x, y, rx, ry, '#000');
   ctx.restore();
+}
+
+// --- Couleurs et tramage (Bayer 4x4)
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)] / 16;
+
+// Bruit déterministe par pixel.
+function hash2(x, y, s = 0) {
+  let h = (x * 374761393 + y * 668265263 + s * 982451653) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function rgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mixRgb(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+// Quantifie une valeur 0..1 en paliers tramés (look 16 bits).
+function dq(v, x, y, steps = 4) {
+  return clamp(Math.floor(v * steps + bayer(x, y)) / steps, 0, 1);
 }
 
 // Sauvegarde locale tolérante aux erreurs (navigation privée, etc.).
