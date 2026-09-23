@@ -87,6 +87,7 @@ class EBullet {
     this.ghost = !!o.ghost;
     this.delay = o.delay || 0;
     this.dmg = o.dmg || 1;
+    this.owner = o.owner || null;
     this.dead = false;
   }
 

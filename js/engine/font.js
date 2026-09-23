@@ -149,16 +149,20 @@ const Font = {
     return c;
   },
 
+  // color peut être un tableau : dégradé vertical (style 16 bits).
   raw(ctx, text, x, y, color, scale) {
-    ctx.fillStyle = color;
+    const grad = Array.isArray(color);
+    if (!grad) ctx.fillStyle = color;
     let cx = x;
     for (const ch of text) {
       if (ch === ' ') { cx += 4 * scale; continue; }
       const inf = this.info(ch);
       const g = inf.g;
       for (let i = 0; i < g.px.length; i += 2) {
+        if (grad) ctx.fillStyle = color[Math.min(color.length - 1, Math.floor((g.px[i + 1] * color.length) / 7))];
         ctx.fillRect(cx + g.px[i] * scale, y + g.px[i + 1] * scale, scale, scale);
       }
+      if (grad) ctx.fillStyle = color[0];
       if (inf.acc) for (const [ax, ay] of inf.acc) ctx.fillRect(cx + ax * scale, y + ay * scale, scale, scale);
       cx += (g.w + 1) * scale;
     }

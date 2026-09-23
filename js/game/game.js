@@ -90,6 +90,8 @@ class GameScene {
         this.enemies.push(b);
         this.bossRef = b;
         this.bossIntro = 2.6;
+        this.banner = null;
+        this.floorCard = 0;
         Sound.music('boss');
       } else if (room.enemySpec) {
         this.spawnEnemies(room, p.x, p.y);
@@ -330,7 +332,7 @@ class GameScene {
     }
   }
 
-  hurtPlayer(n) {
+  hurtPlayer(n, src) {
     const p = this.player;
     if (this.dead || p.inv > 0 || p.dashT > 0 || this.bossIntro > 0 || this.boonChoice || this.descendT > 0) return false;
     if (p.stats.dodge && Math.random() < p.stats.dodge) {
@@ -358,6 +360,9 @@ class GameScene {
     if (p.hp <= 0) {
       p.hp = 0;
       this.dead = true;
+      let killer = src && src.owner ? src.owner : src;
+      if (killer instanceof EBullet) killer = this.bossRef || null;
+      this.stats.killer = killer instanceof Enemy ? killer : null;
       this.deathT = 2;
       this.stats.floor = this.floorNum;
       Sound.stopMusic();
@@ -785,19 +790,21 @@ class GameScene {
         const k = this.descendT / 0.9;
         ctx.save();
         ctx.globalAlpha = k;
-        drawSpr(ctx, 'claude_down_0', this.player.x - 8, this.player.y - 11 + (1 - k) * 6);
+        drawSpr(ctx, 'claude_down_0', this.player.x - 10, this.player.y - 12 + (1 - k) * 6);
         ctx.restore();
         continue;
       }
       if (e === this.player && this.dead) {
-        if (Math.floor(this.deathT * 20) % 2) drawSpr(ctx, 'claude_down_0', e.x - 8, e.y - 11, { flash: true });
-        else drawSpr(ctx, 'claude_blink', e.x - 8, e.y - 11);
+        if (Math.floor(this.deathT * 20) % 2) drawSpr(ctx, 'claude_down_0', e.x - 10, e.y - 12, { flash: true });
+        else drawSpr(ctx, 'claude_blink', e.x - 10, e.y - 12);
         continue;
       }
       e.draw(ctx);
     }
     for (const t of this.tears) t.draw(ctx);
     for (const b of this.ebullets) b.draw(ctx);
+
+    this.drawLighting(ctx);
 
     for (const pt of this.particles) {
       const a = Math.max(0, pt.life / pt.max);
@@ -821,6 +828,57 @@ class GameScene {
     }
   }
 
+  // Éclairage façon 32 bits : pénombre + halos autour des sources de lumière,
+  // puis lueurs additives sur les projectiles.
+  drawLighting(ctx) {
+    if (!this.lightCanvas) {
+      this.lightCanvas = document.createElement('canvas');
+      this.lightCanvas.width = ROOM_PX_W;
+      this.lightCanvas.height = ROOM_PX_H;
+    }
+    const lc = this.lightCanvas;
+    const x = lc.getContext('2d');
+    const dark = [0.2, 0.3, 0.26][this.floorNum - 1] || 0.25;
+    x.globalCompositeOperation = 'source-over';
+    x.clearRect(0, 0, lc.width, lc.height);
+    x.fillStyle = `rgba(6,2,14,${dark})`;
+    x.fillRect(0, 0, lc.width, lc.height);
+    x.globalCompositeOperation = 'destination-out';
+    const light = (lx, ly, r, a = 1) => {
+      const g = x.createRadialGradient(lx, ly, 0, lx, ly, r);
+      g.addColorStop(0, `rgba(0,0,0,${a})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g;
+      x.fillRect(lx - r, ly - r, r * 2, r * 2);
+    };
+    const p = this.player;
+    light(p.x, p.y - 4, 80);
+    light(120, 72, 120, 0.35);
+    for (const t of this.tears) light(t.x, t.y - 4, 16, 0.7);
+    for (const b of this.ebullets) if (b.delay <= 0) light(b.x, b.y, 12, 0.6);
+    for (const e of this.enemies) if (e.boss) light(e.x, e.y, 50, 0.6);
+    for (const pd of this.room.pedestals) if (!pd.taken) light(pd.x, pd.y - 6, 30, 0.8);
+    if (this.room.trapdoor) light(this.room.trapdoor.x, this.room.trapdoor.y, 26, 0.7);
+    ctx.drawImage(lc, 0, 0);
+
+    // Lueurs additives
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.35;
+    for (const t of this.tears) drawSprC(ctx, t.sprite === 'tear_blue' ? 'glow_blue' : 'glow_orange', t.x, t.y - 4);
+    ctx.globalAlpha = 0.3;
+    for (const b of this.ebullets) {
+      if (b.delay > 0) continue;
+      const gname = { eb: 'glow_red', eb_purple: 'glow_purple', eb_clip: 'glow_white', eb_blue: 'glow_blue', eb_gold: 'glow_gold' }[b.kind] || 'glow_red';
+      drawSprC(ctx, gname, b.x, b.y - 2);
+    }
+    if (p.special >= 100) {
+      ctx.globalAlpha = 0.15 + Math.sin(this.t * 6) * 0.08;
+      drawSprC(ctx, 'glow_big', p.x, p.y - 4);
+    }
+    ctx.restore();
+  }
+
   drawVendor(ctx, v) {
     drawShadow(ctx, v.x, v.y + 4, 6, 2);
     drawSpr(ctx, 'vendor', v.x - 6, v.y - 10 + Math.round(Math.sin(this.t * 2)));
@@ -836,43 +894,56 @@ class GameScene {
       const y = 4 + Math.floor(i / 6) * 8;
       const v = p.hp - i * 2;
       const name = v >= 2 ? 'heart_full' : v === 1 ? 'heart_half' : 'heart_empty';
-      drawSpr(ctx, name, x, y);
+      const pulse = p.hp <= 2 && v > 0 && Math.floor(this.t * 4) % 2 ? 1 : 0;
+      drawSpr(ctx, name, x, y - pulse);
     }
     if (p.shieldUp) drawSpr(ctx, 'heart_shield', 4 + (total % 6) * 8, 4 + Math.floor(total / 6) * 8);
 
     // Pièces / clés
+    const numCol = ['#ffffff', '#fff4e0', '#d8c8b8', '#b0a0a0'];
     drawSpr(ctx, 'coin', 4, 38);
-    Font.draw(ctx, String(p.coins).padStart(2, '0'), 13, 38, '#fff');
+    Font.draw(ctx, String(p.coins).padStart(2, '0'), 13, 38, numCol, { outline: '#1a1016' });
     drawSpr(ctx, 'key', 4, 49);
-    Font.draw(ctx, String(p.keys).padStart(2, '0'), 13, 50, '#fff');
+    Font.draw(ctx, String(p.keys).padStart(2, '0'), 13, 50, numCol, { outline: '#1a1016' });
 
     // Jauge d'Artefact
     const full = p.special >= 100;
-    Font.draw(ctx, 'ART', 4, 64, full ? '#f8d048' : '#8a8290');
-    rect(ctx, 5, 74, 10, 52, '#1a1016');
-    rect(ctx, 6, 75, 8, 50, '#2a2130');
+    Font.draw(ctx, 'ART', 4, 64, full ? ['#fff4a0', '#f8d048', '#d89020'] : ['#c8b8c0', '#8a8290'], { outline: '#1a1016' });
+    rect(ctx, 4, 73, 12, 54, '#000');
+    rect(ctx, 5, 74, 10, 52, '#3a2a40');
+    rect(ctx, 6, 75, 8, 50, '#1a1020');
     const h = Math.round((p.special / 100) * 50);
-    const col = full ? (Math.floor(this.t * 8) % 2 ? '#f8d048' : '#ffffff') : '#d97757';
-    rect(ctx, 6, 125 - h, 8, h, col);
-    if (full) Font.draw(ctx, 'E', 8, 130, '#f8d048');
+    for (let j = 0; j < h; j++) {
+      const yy = 124 - j;
+      const k = j / 50;
+      let c;
+      if (full) c = (Math.floor(this.t * 10) + j) % 6 < 3 ? '#f8d048' : '#fff4a0';
+      else c = k > 0.66 ? '#f2a88a' : k > 0.33 ? '#d97757' : '#a8513a';
+      rect(ctx, 6, yy, 8, 1, c);
+    }
+    if (h > 0) rect(ctx, 6, 125 - h, 8, 1, '#ffffff');
+    rect(ctx, 6, 75, 1, 50, 'rgba(255,255,255,0.12)');
+    if (full) Font.draw(ctx, 'E', 7, 131, ['#fff4a0', '#f8d048'], { outline: '#1a1016' });
 
     // Dash
     const dashReady = p.dashCd <= 0;
-    rect(ctx, 20, 74, 3, 52, '#1a1016');
-    const dh = dashReady ? 50 : Math.round((1 - p.dashCd / p.stats.dashCd) * 50);
-    rect(ctx, 21, 125 - dh, 1, dh, dashReady ? '#7fe8f0' : '#4a4452');
+    rect(ctx, 19, 73, 5, 54, '#000');
+    rect(ctx, 20, 74, 3, 52, '#1a1020');
+    const dh = dashReady ? 52 : Math.round((1 - p.dashCd / p.stats.dashCd) * 52);
+    rect(ctx, 20, 126 - dh, 3, dh, dashReady ? '#4ab0e0' : '#3a4a60');
+    if (dashReady) rect(ctx, 20, 126 - dh, 1, dh, '#a0e8ff');
 
     // Bénédictions
     p.boons.forEach((id, i) => {
       const b = BOON_MAP[id];
-      drawBoonOrb(ctx, 31, 80 + i * 16, b.color, null, this.t, 5);
+      drawBoonOrb(ctx, 32, 80 + i * 16, b.color, null, this.t, 5);
     });
 
     // Étage
-    Font.draw(ctx, 'ÉTAGE ' + this.floorNum, 160, 4, '#c8c0c8', { align: 'center' });
-    Font.draw(ctx, this.floorDef.name, 160, 14, '#8a8290', { align: 'center' });
+    Font.draw(ctx, 'ÉTAGE ' + this.floorNum, 160, 4, ['#fff0dc', '#f2c8a0', '#d99070'], { align: 'center', outline: '#1a1016' });
+    Font.draw(ctx, this.floorDef.name, 160, 15, ['#c8b8c0', '#8a7a90'], { align: 'center', outline: '#1a1016' });
 
-    this.drawMinimap(ctx, 254, 2);
+    this.drawMinimap(ctx, 254, 3);
 
     // Objets
     p.items.forEach((id, i) => {
@@ -885,56 +956,80 @@ class GameScene {
     // Barre de vie du boss
     const boss = this.enemies.find((e) => e.boss);
     if (boss && this.bossIntro <= 0) {
-      const bw = 160;
-      const bx = 80;
-      const by = 170;
-      rect(ctx, bx - 1, by - 1, bw + 2, 7, '#1a1016');
-      rect(ctx, bx, by, bw, 5, '#4a1a20');
-      rect(ctx, bx, by, Math.round((boss.hp / boss.maxHp) * bw), 5, '#e8404a');
-      rect(ctx, bx, by, Math.round((boss.hp / boss.maxHp) * bw), 1, '#f07078');
-      Font.draw(ctx, boss.name, 160, by - 10, '#fff', { align: 'center', outline: '#1a1016' });
+      const bw = 150;
+      const bx = 88;
+      const by = 169;
+      rect(ctx, bx - 2, by - 2, bw + 4, 9, '#000');
+      rect(ctx, bx - 1, by - 1, bw + 2, 7, '#5a2030');
+      rect(ctx, bx, by, bw, 5, '#200810');
+      const fw = Math.round((boss.hp / boss.maxHp) * bw);
+      rect(ctx, bx, by, fw, 5, '#c02838');
+      rect(ctx, bx, by, fw, 2, '#f05060');
+      rect(ctx, bx, by, fw, 1, '#ffa0a8');
+      rect(ctx, bx, by + 4, fw, 1, '#801020');
+      // Crâne
+      fillEllipse(ctx, bx - 8, by + 2, 5, 4, '#000');
+      fillEllipse(ctx, bx - 8, by + 1, 4, 3, '#f0e8e0');
+      rect(ctx, bx - 10, by + 1, 2, 2, '#1a1016');
+      rect(ctx, bx - 7, by + 1, 2, 2, '#1a1016');
+      rect(ctx, bx - 9, by + 4, 3, 2, '#f0e8e0');
+      Font.draw(ctx, boss.name, 163, by - 11, ['#ffd0d0', '#f05060', '#a02030'], { align: 'center', outline: '#1a1016' });
     }
   }
 
   drawMinimap(ctx, x0, y0) {
     const cw = 6;
     const ch = 3;
-    rect(ctx, x0 - 2, y0 - 1, MAP_W * (cw + 1) + 3, MAP_H * (ch + 1) + 2, 'rgba(0,0,0,0.5)');
+    const mw = MAP_W * (cw + 1) + 3;
+    const mh = MAP_H * (ch + 1) + 2;
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    rect(ctx, x0 - 2, y0 - 1, mw, mh, '#120a10');
+    ctx.restore();
+    ctx.strokeStyle = '#4a3a40';
+    ctx.strokeRect(x0 - 2.5, y0 - 1.5, mw + 1, mh + 1);
     for (const r of this.floor.rooms) {
       if (!r.seen) continue;
       const x = x0 + r.gx * (cw + 1);
       const y = y0 + r.gy * (ch + 1);
-      let c = r.visited ? '#8a8290' : '#3a3440';
-      if (r === this.room) c = '#ffffff';
+      let c = r.visited ? '#a89a90' : '#3e3238';
+      if (r === this.room) c = Math.floor(this.t * 3) % 2 ? '#ffffff' : '#f2e0c8';
       rect(ctx, x, y, cw, ch, c);
+      if (r.visited) rect(ctx, x, y, cw, 1, r === this.room ? '#ffffff' : '#c8bab0');
       const icon = { boss: '#e8404a', treasure: '#f8d048', shop: '#78d05a' }[r.type];
       if (icon) rect(ctx, x + 2, y + 1, 2, 1, icon);
     }
   }
 
   drawOverlays(ctx) {
-    // Nom de l'étage
+    // Nom de l'étage sur une bande de papier (façon Isaac)
     if (this.floorCard > 0 && this.bossIntro <= 0) {
       const a = Math.min(1, this.floorCard, (3 - this.floorCard) * 3);
-      Font.draw(ctx, 'ÉTAGE ' + this.floorNum, 160, 64, '#f2a88a', { align: 'center', scale: 2, outline: '#1a1016', alpha: a });
-      Font.draw(ctx, this.floorDef.name, 160, 86, '#ffffff', { align: 'center', outline: '#1a1016', alpha: a });
+      ctx.save();
+      ctx.globalAlpha = a;
+      const y = 58 + Math.round((1 - Math.min(1, (3 - this.floorCard) * 4)) * -10);
+      drawPaper(ctx, 84, y, 152, 42, 7 + this.floorNum);
+      Font.draw(ctx, 'ÉTAGE ' + this.floorNum, 160, y + 8, INK_RED, { align: 'center', scale: 2 });
+      Font.draw(ctx, this.floorDef.name, 160, y + 28, INK, { align: 'center' });
+      ctx.restore();
     }
-    // Bannière d'objet
+    // Bannière d'objet sur papier
     if (this.banner) {
       const a = Math.min(1, this.banner.t * 2);
-      const y = 44;
+      const y = 40;
+      const w = Math.max(Font.width(this.banner.title), Font.width(this.banner.sub)) + 24;
       ctx.save();
-      ctx.globalAlpha = a * 0.7;
-      rect(ctx, RX, y - 4, ROOM_PX_W, 24, '#000');
+      ctx.globalAlpha = a;
+      drawPaper(ctx, 160 - w / 2, y - 5, w, 27, 3);
+      Font.draw(ctx, this.banner.title, 160, y, this.banner.color ? INK_RED : INK, { align: 'center' });
+      Font.draw(ctx, this.banner.sub, 160, y + 10, INK_SOFT, { align: 'center' });
       ctx.restore();
-      Font.draw(ctx, this.banner.title, 160, y, this.banner.color || '#f8d048', { align: 'center', outline: '#1a1016', alpha: a });
-      Font.draw(ctx, this.banner.sub, 160, y + 10, '#ffffff', { align: 'center', alpha: a });
     }
     if (this.bossIntro > 0) this.drawBossIntro(ctx);
     if (this.boonChoice) this.drawBoonChoice(ctx);
     if (this.victoryT > 0) {
       const a = Math.min(1, (3.5 - this.victoryT) / 1.5);
-      Font.draw(ctx, 'LE MAXIMISEUR EST VAINCU !', 160, 80, '#f8d048', { align: 'center', outline: '#1a1016', alpha: a });
+      Font.draw(ctx, 'SAM ALTMAN EST VAINCU !', 160, 80, ['#fff4a0', '#f8d048', '#d89020'], { align: 'center', scale: 2, outline: '#1a1016', alpha: a });
     }
     if (this.paused) this.drawPause(ctx);
   }
@@ -947,27 +1042,38 @@ class GameScene {
     ctx.globalAlpha = out;
     rect(ctx, 0, 0, W, H, 'rgba(0,0,0,0.6)');
     const by = 44;
-    rect(ctx, 0, by, W, 92, '#1a1016');
-    rect(ctx, 0, by, W, 2, '#e8404a');
-    rect(ctx, 0, by + 90, W, 2, '#e8404a');
+    // Bande tramée rouge/noire animée
+    for (let j = 0; j < 92; j++) {
+      for (let i = 0; i < W; i += 1) {
+        const v = (Math.sin((i + t * 80) * 0.05) * 0.5 + 0.5) * (1 - Math.abs(j - 46) / 46);
+        if (bayer(i, j) < v * 0.8) { ctx.fillStyle = '#4a0c18'; ctx.fillRect(i, by + j, 1, 1); }
+      }
+    }
+    ctx.globalCompositeOperation = 'destination-over';
+    rect(ctx, 0, by, W, 92, '#14060c');
+    ctx.globalCompositeOperation = 'source-over';
+    rect(ctx, 0, by, W, 2, '#f05060');
+    rect(ctx, 0, by + 2, W, 1, '#801020');
+    rect(ctx, 0, by + 89, W, 1, '#801020');
+    rect(ctx, 0, by + 90, W, 2, '#f05060');
     // Claude
-    const cx = lerp(-60, 40, slide);
-    drawSpr(ctx, 'claude_right_0', cx, by + 22, { scale: 3 });
-    Font.draw(ctx, 'CLAUDE', cx + 24, by + 10, '#f2a88a', { align: 'center' });
+    const cx = lerp(-70, 36, slide);
+    drawSpr(ctx, 'claude_right_0', cx, by + 20, { scale: 3 });
+    Font.draw(ctx, 'CLAUDE', cx + 30, by + 8, ['#ffd8c4', '#f2a88a', '#d97757'], { align: 'center', outline: '#1a1016' });
     // VS
-    if (t > 0.3) Font.draw(ctx, 'VS', 160, by + 34, '#ffffff', { align: 'center', scale: 3, outline: '#e8404a' });
+    if (t > 0.3) Font.draw(ctx, 'VS', 160, by + 30, ['#ffffff', '#fff4a0', '#f8d048', '#e8404a'], { align: 'center', scale: 3, outline: '#1a1016' });
     // Boss
     const b = this.bossRef;
     if (b) {
-      const bx = lerp(W + 60, 252, slide);
+      const bx = lerp(W + 60, 256, slide);
       ctx.save();
       ctx.translate(bx, by + 46);
       ctx.scale(2, 2);
       b.drawPortrait(ctx, 0, 0);
       ctx.restore();
       if (t > 0.5) {
-        Font.draw(ctx, b.name, 160, by + 62, '#e8404a', { align: 'center', outline: '#000' });
-        Font.draw(ctx, b.subtitle, 160, by + 78, '#8a8290', { align: 'center' });
+        Font.draw(ctx, b.name, 160, by + 62, ['#ffd0d0', '#f05060', '#a02030'], { align: 'center', outline: '#000' });
+        Font.draw(ctx, b.subtitle, 160, by + 76, '#c8a8b0', { align: 'center', outline: '#000' });
       }
     }
     ctx.restore();
@@ -981,7 +1087,7 @@ class GameScene {
     rect(ctx, 0, 0, W, H, '#0b0710');
     ctx.restore();
     if (bc.t < 0.3) return;
-    Font.draw(ctx, 'UN DON DU RÉSEAU', 160, 12, '#f8d048', { align: 'center', scale: 2, outline: '#1a1016' });
+    Font.draw(ctx, 'UN DON DU RÉSEAU', 160, 12, ['#fff8c0', '#f8d048', '#e09020', '#b06010'], { align: 'center', scale: 2, outline: '#1a1016' });
     Font.draw(ctx, 'CHOISIS UNE BÉNÉDICTION', 160, 32, '#c8c0c8', { align: 'center' });
     const cw = 96;
     const chh = 112;
@@ -992,6 +1098,11 @@ class GameScene {
       rect(ctx, x - 1, y - 1, cw + 2, chh + 2, sel ? b.color : '#4a4452');
       rect(ctx, x, y, cw, chh, '#1a1016');
       rect(ctx, x + 2, y + 2, cw - 4, chh - 4, sel ? '#2a2130' : '#1f1826');
+      for (let j = 0; j < 30; j++) {
+        for (let i2 = 0; i2 < cw - 4; i2++) {
+          if (bayer(i2, j) < (1 - j / 30) * (sel ? 0.5 : 0.25)) { ctx.fillStyle = b.color; ctx.fillRect(x + 2 + i2, y + 2 + j, 1, 1); }
+        }
+      }
       drawBoonOrb(ctx, x + cw / 2, y + 20, b.color, b.glyph, this.t, 9);
       Font.draw(ctx, b.name, x + cw / 2, y + 40, sel ? b.color : '#c8c0c8', { align: 'center' });
       const lines = Font.wrap(b.desc, cw - 10);
@@ -1007,44 +1118,48 @@ class GameScene {
     const p = this.player;
     const s = p.stats;
     ctx.save();
-    ctx.globalAlpha = 0.85;
-    rect(ctx, 0, 0, W, H, '#0b0710');
+    ctx.globalAlpha = 0.6;
+    rect(ctx, 0, 0, W, H, '#000');
     ctx.restore();
-    Font.draw(ctx, 'PAUSE', 160, 10, '#f2a88a', { align: 'center', scale: 2, outline: '#1a1016' });
+    drawPaper(ctx, 18, 8, 284, 164, 11);
+    Font.draw(ctx, 'PAUSE', 160, 16, INK_RED, { align: 'center', scale: 2 });
     // Statistiques
     const lines = [
-      ['DÉGÂTS', s.dmg.toFixed(1)],
-      ['CADENCE', (1 / s.fireDelay).toFixed(1) + '/S'],
-      ['VITESSE', Math.round(s.speed)],
-      ['PORTÉE', Math.round(s.range * s.shotSpeed)],
-      ['TIRS', s.shots],
-      ['ESQUIVE', Math.round(s.dodge * 100) + '%'],
+      ['DÉGÂTS', s.dmg.toFixed(1), '#a8281c'],
+      ['CADENCE', (1 / s.fireDelay).toFixed(1) + '/S', '#b86a10'],
+      ['VITESSE', Math.round(s.speed), '#2a6a9a'],
+      ['PORTÉE', Math.round(s.range * s.shotSpeed), '#4a7a2a'],
+      ['TIRS', s.shots, '#6a3a8a'],
+      ['ESQUIVE', Math.round(s.dodge * 100) + '%', '#2a7a7a'],
     ];
-    Font.draw(ctx, 'STATISTIQUES', 20, 36, '#f8d048');
-    lines.forEach(([k, v], i) => {
-      Font.draw(ctx, k, 20, 50 + i * 11, '#c8c0c8');
-      Font.draw(ctx, String(v), 110, 50 + i * 11, '#ffffff', { align: 'right' });
+    Font.draw(ctx, 'STATISTIQUES', 32, 38, INK);
+    rect(ctx, 32, 47, 70, 1, INK_SOFT);
+    lines.forEach(([k, v, c], i) => {
+      rect(ctx, 32, 53 + i * 11, 5, 5, c);
+      Font.draw(ctx, k, 41, 52 + i * 11, INK);
+      Font.draw(ctx, String(v), 126, 52 + i * 11, c, { align: 'right' });
     });
-    Font.draw(ctx, 'OBJETS', 140, 36, '#f8d048');
-    if (!p.items.length) Font.draw(ctx, 'AUCUN POUR L\'INSTANT', 140, 50, '#4a4452');
+    Font.draw(ctx, 'OBJETS', 146, 38, INK);
+    rect(ctx, 146, 47, 40, 1, INK_SOFT);
+    if (!p.items.length) Font.draw(ctx, 'AUCUN POUR L\'INSTANT', 146, 54, INK_SOFT);
     p.items.slice(0, 7).forEach((id, i) => {
-      drawSpr(ctx, ITEMS[id].icon, 140, 47 + i * 13);
-      Font.draw(ctx, ITEMS[id].name, 156, 50 + i * 13, '#c8c0c8');
+      drawSpr(ctx, ITEMS[id].icon, 146, 51 + i * 13);
+      Font.draw(ctx, ITEMS[id].name, 162, 54 + i * 13, INK);
     });
     if (p.boons.length) {
-      Font.draw(ctx, 'BÉNÉDICTIONS', 20, 122, '#f8d048');
+      Font.draw(ctx, 'BÉNÉDICTIONS', 32, 122, INK);
       p.boons.forEach((id, i) => {
         const b = BOON_MAP[id];
-        Font.draw(ctx, b.name, 20, 134 + i * 10, b.color);
+        rect(ctx, 32, 134 + i * 10, 5, 5, b.color);
+        Font.draw(ctx, b.name, 41, 133 + i * 10, INK_SOFT);
       });
     }
     const opts = ['REPRENDRE', 'RECOMMENCER', 'MENU PRINCIPAL'];
-    rect(ctx, 0, 158, W, 1, '#2a2130');
     opts.forEach((o, i) => {
       const sel = i === this.pauseSel;
-      const x = 60 + i * 100;
-      Font.draw(ctx, o, x, 166, sel ? '#f2a88a' : '#8a8290', { align: 'center' });
-      if (sel) Font.draw(ctx, '>', x - Font.width(o) / 2 - 8, 166, '#f2a88a');
+      const x = 76 + i * 84;
+      Font.draw(ctx, o, x, 156, sel ? INK_RED : INK_SOFT, { align: 'center' });
+      if (sel) drawScribble(ctx, x, 159, Font.width(o), this.t);
     });
   }
 }

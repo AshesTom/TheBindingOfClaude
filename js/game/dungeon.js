@@ -18,7 +18,7 @@ const FLOORS = [
     },
   },
   {
-    name: 'LE CLOUD LATENT', music: 'floor3', boss: 'clip',
+    name: 'LE CLOUD LATENT', music: 'floor3', boss: 'sam',
     pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime', 'ghost'],
     theme: {
       id: 3, floor: '#2a1838', floor2: '#24142f', floorDot: '#3e2452',

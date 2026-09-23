@@ -210,18 +210,18 @@ class Player {
 
   draw(ctx) {
     for (const gh of this.ghosts) {
-      drawSpr(ctx, gh.spr, gh.x - 8, gh.y - 11, { tint: '#ffb080', alpha: gh.t * 2 });
+      drawSpr(ctx, gh.spr, gh.x - 10, gh.y - 12, { tint: '#ffb080', alpha: gh.t * 2 });
     }
-    drawShadow(ctx, this.x, this.y + 3, 6, 2);
+    drawShadow(ctx, this.x, this.y + 3, 8, 2);
     // Clignote pendant l'invulnérabilité après un coup (pas pendant le dash)
     if (this.inv > 0 && this.dashT <= 0 && !this.dashIframe && Math.floor(this.inv * 16) % 2 === 0) return;
     if (this.dashT <= 0 && this.inv <= 0) this.dashIframe = false;
     const bob = this.holdT > 0 ? 0 : (Math.hypot(this.vx, this.vy) > 10 ? 0 : Math.round(Math.sin(this.animT * 3) * 0.6));
     if (this.holdT > 0) {
-      drawSpr(ctx, 'claude_down_0', this.x - 8, this.y - 11);
+      drawSpr(ctx, 'claude_down_0', this.x - 10, this.y - 12);
       drawSprC(ctx, ITEMS[this.holdItem].icon, this.x, this.y - 20);
     } else {
-      drawSpr(ctx, this.spriteName(), this.x - 8, this.y - 11 + bob, { flash: this.hurtFlash > 0 });
+      drawSpr(ctx, this.spriteName(), this.x - 10, this.y - 12 + bob);
     }
     if (this.shieldUp) {
       ctx.save();

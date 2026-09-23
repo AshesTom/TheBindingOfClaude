@@ -25,7 +25,77 @@ const PAL = {
   S: '#f4e8d0',
   M: '#f070b8',
   m: '#902868',
+  H: '#ffd8c4', // reflet Claude
+  d: '#6e3226', // ombre profonde Claude
+  F: '#f2c8a0', // peau
+  f: '#c08a68',
+  n2: '#5a3a28',
 };
+
+// ---------------------------------------------------------------------------
+// Rampes de couleurs "16 bits" : éclaircir vers le jaune, assombrir vers le violet.
+
+function hexToHsl(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (mx + mn) / 2;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const to = (v) => Math.round(clamp((v + m) * 255, 0, 255)).toString(16).padStart(2, '0');
+  return '#' + to(r) + to(g) + to(b);
+}
+
+function moveHue(h, target, deg) {
+  let d = ((target - h + 540) % 360) - 180;
+  return h + Math.sign(d) * Math.min(Math.abs(d), deg);
+}
+
+const toneCache = {};
+// amt > 0 : plus clair ; amt < 0 : plus sombre.
+function tone(hex, amt) {
+  const key = hex + amt;
+  if (toneCache[key]) return toneCache[key];
+  let [h, s, l] = hexToHsl(hex);
+  if (amt > 0) {
+    h = moveHue(h, 55, 40 * amt);
+    l = Math.min(0.96, l + amt);
+  } else {
+    h = moveHue(h, 255, -60 * amt);
+    l = Math.max(0.03, l + amt);
+    s = Math.min(1, s * 1.08);
+  }
+  toneCache[key] = hslToHex(h, s, l);
+  return toneCache[key];
+}
 
 const SPR = {};
 
@@ -41,19 +111,47 @@ function silhouette(src, color) {
   return c;
 }
 
-function makeSprite(name, rows, swap) {
+const NO_SHADE = new Set(['K', 'W', '.', ' ']);
+
+function makeSprite(name, rows, swap, opts = {}) {
   const h = rows.length;
   const w = Math.max(...rows.map((r) => r.length));
+  const grid = rows.map((r) => {
+    const out = [];
+    for (let i = 0; i < w; i++) {
+      let ch = r[i] || '.';
+      if (swap && swap[ch]) ch = swap[ch];
+      out.push(ch);
+    }
+    return out;
+  });
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   const x = c.getContext('2d');
+  const edge = (i, j) => {
+    if (i < 0 || j < 0 || i >= w || j >= h) return true;
+    const ch = grid[j][i];
+    return ch === '.' || ch === ' ' || ch === 'K';
+  };
   for (let j = 0; j < h; j++) {
-    for (let i = 0; i < rows[j].length; i++) {
-      let ch = rows[j][i];
+    for (let i = 0; i < w; i++) {
+      const ch = grid[j][i];
       if (ch === '.' || ch === ' ') continue;
-      if (swap && swap[ch]) ch = swap[ch];
-      x.fillStyle = PAL[ch] || ch;
+      let col = PAL[ch] || ch;
+      if (opts.shade !== false && !NO_SHADE.has(ch)) {
+        const up = edge(i, j - 1);
+        const down = edge(i, j + 1);
+        const left = edge(i - 1, j);
+        const right = edge(i + 1, j);
+        const score = (up ? 2 : 0) + (left ? 1 : 0) - (down ? 2 : 0) - (right ? 1 : 0);
+        if (up && left) col = tone(col, 0.2);
+        else if (score >= 2) col = tone(col, 0.12);
+        else if (score >= 1) col = tone(col, 0.06);
+        else if (score <= -2) col = tone(col, -0.16);
+        else if (score <= -1) col = tone(col, -0.08);
+      }
+      x.fillStyle = col;
       x.fillRect(i, j, 1, 1);
     }
   }
@@ -98,46 +196,80 @@ function drawSprC(ctx, name, cx, cy, o = {}) {
 // Claude (inspiré de la mascotte pixel de Claude Code)
 
 function clawdRows(dir, frame, blink) {
-  const rows = [
-    '................',
-    '..KKKKKKKKKKKK..',
-    '..KhhhhhhhhhhK..',
-    '..KhOOOOOOOOOK..',
-    '..KOOOOOOOOOOK..',
-    'KKKOOOOOOOOOOKKK',
-    'KhOOOOOOOOOOOOoK',
-    'KOoOOOOOOOOOOooK',
-    'KKKOOOOOOOOOOKKK',
-    '..KoOOOOOOOOoK..',
-    '..KKKKKKKKKKKK..',
-    '................',
-    '................',
-    '................',
-    '................',
-  ].map((r) => r.split(''));
-  let eyes = [5, 10];
-  if (dir === 'left') eyes = [4, 9];
-  if (dir === 'right') eyes = [6, 11];
+  const body = [
+    'HHhhhhhhhhhhhh',
+    'Hhhhhhhhhhhhhh',
+    'hhOOOOOOOOOOOo',
+    'hOOOOOOOOOOOOo',
+    'hOOOOOOOOOOOOo',
+    'OOOOOOOOOOOOoo',
+    'OOOOOOOOOOOOoo',
+    'oOOOOOOOOOOooo',
+    'oooooooooooood',
+  ];
+  const sides = {
+    4: ['KKK', 'KKK'],
+    5: ['KHO', 'ooK'],
+    6: ['KhO', 'odK'],
+    7: ['KKK', 'KKK'],
+  };
+  const rows = [' '.repeat(20), '...KKKKKKKKKKKKKK...'];
+  body.forEach((b, i) => {
+    const [l, r] = sides[i] || ['..K', 'K..'];
+    rows.push(l + b + r);
+  });
+  rows.push('...KKKKKKKKKKKKKK...');
+  for (let i = 0; i < 4; i++) rows.push(' '.repeat(20));
+  const g = rows.map((r) => r.split(''));
+  let eyes = [6, 12];
+  if (dir === 'left') eyes = [5, 11];
+  if (dir === 'right') eyes = [7, 13];
   if (dir !== 'up') {
     for (const c of eyes) {
-      if (!blink) rows[3][c] = 'K';
-      rows[4][c] = 'K';
+      if (!blink) {
+        g[4][c] = 'W'; g[4][c + 1] = 'K';
+        g[5][c] = 'K'; g[5][c + 1] = 'K';
+      }
+      g[6][c] = 'K'; g[6][c + 1] = 'K';
     }
+  } else {
+    // Dos : petite couture plus sombre
+    for (let c = 7; c < 13; c++) g[9][c] = 'o';
   }
-  const legs = frame === 0 ? [3, 5, 10, 12] : [4, 6, 9, 11];
-  for (const c of legs) {
-    rows[11][c] = 'o';
-    rows[12][c] = 'o';
-    rows[13][c] = 'K';
-  }
-  return rows.map((r) => r.join(''));
+  const legs = [[4, 5], [7, 8], [11, 12], [14, 15]];
+  legs.forEach((lg, i) => {
+    const short = frame === 1 && i % 2 === 1;
+    const cols = short ? ['o', 'd'] : ['o', 'o', 'd'];
+    cols.forEach((col, k) => {
+      for (const c of lg) g[12 + k][c] = c === lg[1] ? (col === 'o' ? 'o' : 'd') : (col === 'o' ? 'O' : 'o');
+    });
+  });
+  return g.map((r) => r.join(''));
 }
 
 function buildClaude() {
   for (const dir of ['down', 'left', 'right', 'up']) {
-    for (const f of [0, 1]) makeSprite(`claude_${dir}_${f}`, clawdRows(dir, f, false));
+    for (const f of [0, 1]) makeSprite(`claude_${dir}_${f}`, clawdRows(dir, f, false), null, { shade: false });
   }
-  makeSprite('claude_blink', clawdRows('down', 0, true));
+  makeSprite('claude_blink', clawdRows('down', 0, true), null, { shade: false });
+}
+
+// Lueur (pour les tirs et les lumières) : disque tramé.
+function makeGlow(name, r, color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = r * 2 + 1;
+  const x = c.getContext('2d');
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  x.fillStyle = color;
+  for (let j = -r; j <= r; j++) {
+    for (let i = -r; i <= r; i++) {
+      const d = Math.hypot(i, j) / r;
+      if (d > 1) continue;
+      const level = (1 - d) * 16;
+      if (level > bayer[((j + 64) % 4) * 4 + ((i + 64) % 4)]) x.fillRect(i + r, j + r, 1, 1);
+    }
+  }
+  SPR[name] = { img: c, white: c, w: c.width, h: c.height };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +382,30 @@ const SPRITE_DEFS = {
     'KLLLLLLK',
     'KlLLLLlK',
     '.KKKKKK.',
+  ],
+
+  // Sam Altman (caricature)
+  sam: [
+    '...KKKKKK...',
+    '..KnnnnnnK..',
+    '.KnnnnnnnnK.',
+    '.KnFFnnFFnK.',
+    '.KFFFFFFFFK.',
+    '.KFKFFFFKFK.',
+    '.KFFFFFFFFK.',
+    '.KFFFffFFFK.',
+    '..KFFFFFFK..',
+    '...KFFFFK...',
+    '.KKGGGGGGKK.',
+    'KGGGGGGGGGGK',
+    'KGGGgGGgGGGK',
+    'KGKGGGGGGKGK',
+    'KFKGGGGGGKFK',
+    '..KGGGGGGK..',
+    '..KbbbbbbK..',
+    '..KbbKKbbK..',
+    '..KbbK.KbbK.',
+    '..KKKK.KKKK.',
   ],
 
   // Projectiles
@@ -623,6 +779,14 @@ function buildSprites() {
   makeSprite('eb_clip', SPRITE_DEFS.eb, { R: 'w', r: 'g' });
   makeSprite('eb_blue', SPRITE_DEFS.eb, { R: 'B', r: 'b', W: 'C' });
   makeSprite('tear_blue', SPRITE_DEFS.tear, { O: 'B', h: 'C' });
+  makeSprite('eb_gold', SPRITE_DEFS.eb, { R: 'Y', r: 'y' });
+  makeGlow('glow_orange', 7, '#ff9a60');
+  makeGlow('glow_red', 6, '#ff4050');
+  makeGlow('glow_purple', 6, '#c070ff');
+  makeGlow('glow_blue', 6, '#60c0ff');
+  makeGlow('glow_gold', 6, '#ffd040');
+  makeGlow('glow_white', 6, '#ffffff');
+  makeGlow('glow_big', 14, '#ff9a60');
 }
 
 buildSprites();

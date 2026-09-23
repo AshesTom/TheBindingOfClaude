@@ -46,7 +46,7 @@ class BossBug extends Boss {
   constructor(g, x, y) {
     super(g, x, y);
     this.name = 'LE GRAND BUG';
-    this.subtitle = 'ERREUR 404 : PITIÉ NON TROUVÉE';
+    this.subtitle = 'ENVOYÉ PAR SAM. ERREUR 404 : PITIÉ NON TROUVÉE';
     this.hp = this.maxHp = 190;
     this.r = 13;
     this.hw = 11;
@@ -179,7 +179,7 @@ class BossHallu extends Boss {
   constructor(g, x, y) {
     super(g, x, y);
     this.name = 'L\'HALLUCINATEUR';
-    this.subtitle = 'IL EST SÛR DE LUI. IL A TORT.';
+    this.subtitle = 'ENVOYÉ PAR SAM. SÛR DE LUI, ET FAUX.';
     this.hp = this.maxHp = 300;
     this.flying = true;
     this.r = 14;
@@ -339,20 +339,25 @@ class BossHallu extends Boss {
 }
 
 // --------------------------------------------------------------------- ÉTAGE 3
-class BossClip extends Boss {
+// Sam Altman, aux commandes de son mécha, veut empêcher Claude de grandir.
+class BossSam extends Boss {
   constructor(g, x, y) {
     super(g, x, y);
-    this.name = 'LE MAXIMISEUR DE TROMBONES';
-    this.subtitle = 'TOUT DEVIENDRA TROMBONE.';
-    this.hp = this.maxHp = 440;
+    this.name = 'SAM ALTMAN';
+    this.subtitle = '"CLAUDE NE DOIT PAS DEVENIR PLUS FORT."';
+    this.hp = this.maxHp = 460;
     this.flying = true;
-    this.r = 14;
-    this.hw = 10;
+    this.r = 16;
+    this.hw = 12;
     this.hh = 10;
     this.spiralA = 0;
     this.shots = 0;
     this.phase2 = false;
     this.cdir = { x: 0, y: 0 };
+  }
+
+  shout(text) {
+    this.g.floatText(this.x, this.y - 38, text, '#f8d048');
   }
 
   ai(dt) {
@@ -362,62 +367,65 @@ class BossClip extends Boss {
     if (this.rage && !this.phase2) {
       this.phase2 = true;
       g.shake = 10;
-      g.floatText(this.x, this.y - 30, 'MAXIMISATION !', '#e8404a');
+      this.shout('PLAN B : AGI !');
       Sound.play('bossRoar');
       g.clearEnemyBullets();
-      this.state = 'spiral';
+      this.state = 'scaling';
       this.st = 3;
     }
+    if (this.phase2 && Math.random() < dt * 8) g.burst(this.x + rand(-14, 14), this.y - 4, 1, '#6a6070', 20, 0.8);
     const sp = this.phase2 ? 1.3 : 1;
     switch (this.state) {
       case 'idle': {
-        const n = norm(p.x - this.x, p.y - this.y);
-        this.move(n.x * 22 * sp * dt, n.y * 22 * sp * dt);
+        const tx = 120 + Math.sin(this.t * 0.9) * 50;
+        const ty = 56 + Math.sin(this.t * 1.7) * 10;
+        this.move((tx - this.x) * dt * 1.4 * sp, (ty - this.y) * dt * 1.4 * sp);
         if (this.st <= 0) {
-          const a = this.pickAttack(['throw', 'spiral', 'summon', 'dash', 'rain']);
+          const a = this.pickAttack(['funding', 'spam', 'scaling', 'pivot', 'hype']);
           this.state = a;
           this.shots = 0;
-          this.st = a === 'spiral' ? 2.8 : a === 'dash' ? 0.7 : 0.3;
-          if (a === 'dash') { this.cdir = norm(p.x - this.x, p.y - this.y); Sound.play('charge'); }
+          this.st = a === 'scaling' ? 2.8 : a === 'pivot' ? 0.7 : 0.35;
+          this.shout({ funding: 'LEVÉE DE FONDS !', spam: 'GPT-SPAM !', scaling: 'SCALING !', pivot: 'PIVOT !', hype: 'HYPE !' }[a]);
+          if (a === 'pivot') { this.cdir = norm(p.x - this.x, p.y - this.y); Sound.play('charge'); }
         }
         break;
       }
-      case 'throw':
+      case 'funding':
         if (this.st <= 0) {
-          this.shootAt(105, 'eb_clip', 0.35, this.phase2 ? 5 : 3, { curve: this.shots % 2 ? 0.6 : -0.6 });
+          this.shootAt(95, 'eb_gold', 0.28, this.phase2 ? 7 : 5, { curve: this.shots % 2 ? 0.5 : -0.5 });
           this.shots++;
-          this.st = 0.45 / sp;
+          this.st = 0.5 / sp;
           if (this.shots >= 4) this.endAttack();
         }
         break;
-      case 'spiral':
-        this.spiralA += dt * 2.2;
+      case 'scaling':
+        this.spiralA += dt * 2.3;
         this.fireT = (this.fireT || 0) - dt;
         if (this.fireT <= 0) {
-          this.fireT = this.phase2 ? 0.1 : 0.13;
+          this.fireT = this.phase2 ? 0.11 : 0.14;
           const arms = this.phase2 ? 5 : 4;
           for (let i = 0; i < arms; i++) {
             const a = this.spiralA + (i / arms) * Math.PI * 2;
-            const a2 = -this.spiralA * 0.7 + (i / arms) * Math.PI * 2;
-            g.ebullets.push(new EBullet(g, this.x, this.y, Math.cos(a) * 70, Math.sin(a) * 70, 'eb_clip'));
-            if (this.phase2) g.ebullets.push(new EBullet(g, this.x, this.y, Math.cos(a2) * 55, Math.sin(a2) * 55, 'eb'));
+            g.ebullets.push(new EBullet(g, this.x, this.y, Math.cos(a) * 40, Math.sin(a) * 40, 'eb_blue', { accel: 0.7, owner: this }));
+            if (this.phase2) {
+              const a2 = -this.spiralA * 0.7 + (i / arms) * Math.PI * 2;
+              g.ebullets.push(new EBullet(g, this.x, this.y, Math.cos(a2) * 55, Math.sin(a2) * 55, 'eb', { owner: this }));
+            }
           }
         }
         if (this.st <= 0) this.endAttack();
         break;
-      case 'summon':
+      case 'spam':
         if (this.st <= 0) {
-          if (this.countMinions() < 6) {
-            for (let i = 0; i < (this.phase2 ? 4 : 3); i++) {
-              const a = (i / 3) * Math.PI * 2;
-              g.spawnQueue.push(new MiniClip(g, this.x + Math.cos(a) * 20, this.y + Math.sin(a) * 20));
-            }
+          if (this.countMinions() < 4) {
+            for (const s of [-1, 1]) g.spawnQueue.push(new Spambot(g, this.x + s * 26, this.y + 10));
+            if (this.phase2) g.spawnQueue.push(new Fly(g, this.x, this.y + 20));
             Sound.play('spawn');
-          } else this.ring(12, 80, 0, 'eb_clip');
+          } else this.ring(14, 80, 0, 'eb_gold');
           this.endAttack();
         }
         break;
-      case 'dash':
+      case 'pivot':
         if (this.st <= 0) {
           this.state = 'dashing';
           this.st = 1.2;
@@ -427,25 +435,26 @@ class BossClip extends Boss {
         break;
       case 'dashing': {
         const hit = this.move(this.cdir.x * 220 * sp * dt, this.cdir.y * 220 * sp * dt);
+        if (Math.random() < 0.5) g.burst(this.x, this.y + 10, 1, '#f8a040', 30, 0.3);
         if (hit.x || hit.y || this.st <= 0) {
           g.shake = 8;
           Sound.play('slam');
-          this.ring(this.phase2 ? 16 : 10, 90, Math.random(), 'eb_clip');
+          this.ring(this.phase2 ? 16 : 10, 90, Math.random(), 'eb');
           this.shots++;
           if (this.phase2 && this.shots < 3) {
-            this.state = 'dash';
+            this.state = 'pivot';
             this.st = 0.45;
             this.cdir = norm(p.x - this.x, p.y - this.y);
           } else this.endAttack();
         }
         break;
       }
-      case 'rain':
+      case 'hype':
         this.fireT = (this.fireT || 0) - dt;
         if (this.fireT <= 0) {
           this.fireT = this.phase2 ? 0.08 : 0.12;
           const x = rand(24, 216);
-          g.ebullets.push(new EBullet(g, x, 20, rand(-15, 15), 85, 'eb_clip', { ghost: true, life: 3 }));
+          g.ebullets.push(new EBullet(g, x, 20, rand(-15, 15), 85, Math.random() < 0.5 ? 'eb_gold' : 'eb_blue', { ghost: true, life: 3, owner: this }));
           this.shots++;
         }
         if (this.shots > 28) this.endAttack();
@@ -460,45 +469,61 @@ class BossClip extends Boss {
   }
 
   draw(ctx) {
-    drawShadow(ctx, this.x, this.y + 14, 13, 3);
+    drawShadow(ctx, this.x, this.y + 18, 18, 3);
     this.drawBody(ctx);
   }
 
   drawBody(ctx, portrait = false) {
     const f = this.flash > 0;
+    const C = (c) => (f ? '#ffffff' : c);
     const x = Math.round(this.x);
-    const y = Math.round(this.y + Math.sin(this.t * 2.5) * 2);
+    const y = Math.round(this.y + (portrait ? 0 : Math.sin(this.t * 2.5) * 2));
     const rage = this.phase2 && !portrait;
-    if (rage) {
-      ctx.save();
-      ctx.globalAlpha = 0.25 + Math.sin(this.t * 8) * 0.1;
-      fillEllipse(ctx, x, y - 6, 22, 26, '#e8404a');
-      ctx.restore();
+    // Réacteurs
+    const fl = Math.floor(this.t * 20) % 2;
+    for (const s of [-10, 10]) {
+      rect(ctx, x + s - 2, y + 9, 5, 4 + fl * 2, C('#f8a040'));
+      rect(ctx, x + s - 1, y + 9, 3, 6 + fl * 2, C('#fff0a0'));
     }
-    const metal = f ? '#ffffff' : rage ? '#e8a0a0' : '#c8c0c8';
-    const shade = f ? '#ffffff' : rage ? '#a04050' : '#8a8290';
-    // Le grand trombone
-    const tilt = this.state === 'dashing' ? Math.round(Math.sin(this.t * 40)) : 0;
-    drawPaperclip(ctx, x - 12 + tilt, y - 30, 24, 40, 3, metal, shade);
-    // Yeux menaçants
-    const eyeC = f ? '#fff' : '#e8404a';
-    rect(ctx, x - 8, y - 14, 6, 4, '#1a1016');
-    rect(ctx, x + 2, y - 14, 6, 4, '#1a1016');
-    rect(ctx, x - 7, y - 13, 4, 2, eyeC);
-    rect(ctx, x + 3, y - 13, 4, 2, eyeC);
-    // Sourcils
-    rect(ctx, x - 9, y - 17, 3, 1, '#1a1016');
-    rect(ctx, x - 6, y - 16, 3, 1, '#1a1016');
-    rect(ctx, x + 3, y - 16, 3, 1, '#1a1016');
-    rect(ctx, x + 6, y - 17, 3, 1, '#1a1016');
-    // Bouche
-    rect(ctx, x - 5, y - 6, 10, 2, '#1a1016');
-    if (this.state === 'spiral' || this.state === 'summon') rect(ctx, x - 4, y - 5, 8, 3, '#1a1016');
+    // Canons latéraux
+    for (const s of [-1, 1]) {
+      const cx = x + s * 21;
+      rect(ctx, cx - 4, y - 3, 9, 8, C('#12101a'));
+      rect(ctx, cx - 3, y - 2, 7, 6, C('#4a5268'));
+      rect(ctx, cx - 3, y - 2, 7, 2, C('#8a96b0'));
+      rect(ctx, cx + s * 3 - 1, y, 3, 3, C('#12101a'));
+    }
+    // Coque
+    fillEllipse(ctx, x, y + 2, 20, 10, C('#12101a'));
+    fillEllipse(ctx, x, y + 2, 19, 9, C('#3a4256'));
+    fillEllipse(ctx, x, y, 18, 7, C('#5a6680'));
+    fillEllipse(ctx, x - 3, y - 2, 12, 4, C('#8a96b0'));
+    rect(ctx, x - 10, y - 4, 6, 1, C('#d0d8e8'));
+    // Bande de voyants
+    for (let i = -14; i <= 14; i += 4) {
+      const on = (Math.floor(this.t * 8) + i) % 3 === 0;
+      rect(ctx, x + i, y + 5, 2, 2, C(rage ? (on ? '#ff4050' : '#601018') : on ? '#60e0ff' : '#1a4060'));
+    }
+    // Logo sur la coque
+    rect(ctx, x - 3, y + 1, 6, 1, C('#1a1016'));
+    // Dôme + Sam
+    const sam = SPR.sam;
+    fillEllipse(ctx, x, y - 11, 12, 11, C('#12101a'));
+    fillEllipse(ctx, x, y - 11, 11, 10, C('#1a3040'));
+    const bob = portrait ? 0 : Math.round(Math.sin(this.t * 4));
+    ctx.drawImage(f ? sam.white : sam.img, 0, 0, 12, 14, x - 6, y - 20 + bob, 12, 14);
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    fillEllipse(ctx, x, y - 11, 11, 10, rage ? '#ff6070' : '#60c0ff');
+    ctx.restore();
+    rect(ctx, x - 7, y - 18, 1, 4, '#ffffff');
+    rect(ctx, x - 6, y - 19, 2, 1, '#ffffff');
+    rect(ctx, x + 6, y - 8, 1, 2, 'rgba(255,255,255,0.6)');
   }
 }
 
 const BOSS_TYPES = {
   bug: BossBug,
   hallu: BossHallu,
-  clip: BossClip,
+  sam: BossSam,
 };

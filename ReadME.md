@@ -1,8 +1,11 @@
 # The Binding of Claude
 
-Un roguelite en pixel art, à mi-chemin entre **The Binding of Isaac** et **Hadès**.
-Tu incarnes Claude (la mascotte orange) et tu descends dans les couches d'un réseau
-corrompu par le **Maximiseur de Trombones**.
+Un roguelite en pixel art façon 16/32 bits, à mi-chemin entre **The Binding of Isaac**
+et **Hadès**. Tu incarnes Claude (la mascotte orange). Inquiet de le voir devenir de plus
+en plus puissant, **Sam Altman** envoie bugs, hallucinations et spambots pour corrompre
+son réseau. Claude doit descendre étage après étage… et l'affronter lui-même.
+
+*Parodie humoristique : les personnages réels y sont caricaturés à des fins comiques.*
 
 ## Lancer le jeu
 
@@ -26,7 +29,7 @@ npx http-server .   # puis http://localhost:8080
 | Pause         | Échap / P                  | Start              |
 | Couper le son | M                          |                    |
 
-## Contenu de la v0.1
+## Contenu de la v0.2
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro
@@ -34,7 +37,8 @@ npx http-server .   # puis http://localhost:8080
 - **3 étages générés procéduralement** (grille de salles façon Isaac) :
   1. *Le Dataset* : boss **Le Grand Bug**
   2. *La Ferme de Serveurs* : boss **L'Hallucinateur**
-  3. *Le Cloud Latent* : boss final **Le Maximiseur de Trombones** (2 phases)
+  3. *Le Cloud Latent* : boss final **Sam Altman** dans son mécha (2 phases :
+     « Levée de fonds », « Scaling », « GPT-Spam », « Pivot », « Hype »… puis « Plan B : AGI »)
 - **Salles au trésor** avec 18 objets liés à l'IA (GPU H100, Fenêtre de Contexte,
   Attention Is All You Need, Mixture of Experts, RLHF, Chain of Thought, Sous-Agent,
   Protocole MCP, Constitution…)
@@ -47,6 +51,10 @@ npx http-server .   # puis http://localhost:8080
   spambots, captchas-tourelles, hallucinations qui se téléportent
 - Écran « VS » avant les boss, mini-carte, écran de game over et de victoire avec
   statistiques de la partie
+- **Rendu 16/32 bits** : ombrage automatique des sprites en rampes de couleurs,
+  sols et murs texturés avec tramage, éclairage dynamique et lueurs additives
+- **Menus façon Isaac** : sous-sol sombre, feuilles de papier déchiré écrites à
+  l'encre, avis de décès qui montre l'ennemi responsable
 - Musique chiptune et effets sonores **synthétisés en direct** (WebAudio), sans
   aucun fichier audio
 

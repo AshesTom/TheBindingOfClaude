@@ -76,7 +76,7 @@ class Enemy {
     const base = Math.atan2(p.y - this.y, p.x - this.x);
     for (let i = 0; i < count; i++) {
       const a = base + (i - (count - 1) / 2) * spread;
-      this.g.ebullets.push(new EBullet(this.g, this.x, this.y - 2, Math.cos(a) * speed, Math.sin(a) * speed, kind, o));
+      this.g.ebullets.push(new EBullet(this.g, this.x, this.y - 2, Math.cos(a) * speed, Math.sin(a) * speed, kind, Object.assign({ owner: this }, o)));
     }
     Sound.play('ebullet');
   }
@@ -84,7 +84,7 @@ class Enemy {
   ring(n, speed, offset = 0, kind = 'eb', o = {}) {
     for (let i = 0; i < n; i++) {
       const a = offset + (i / n) * Math.PI * 2;
-      this.g.ebullets.push(new EBullet(this.g, this.x, this.y - 2, Math.cos(a) * speed, Math.sin(a) * speed, kind, o));
+      this.g.ebullets.push(new EBullet(this.g, this.x, this.y - 2, Math.cos(a) * speed, Math.sin(a) * speed, kind, Object.assign({ owner: this }, o)));
     }
     Sound.play('ebullet');
   }
@@ -117,6 +117,7 @@ class Enemy {
 class Bug extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UN BUG';
     this.setHp(9);
     this.speed = 32 + g.floorNum * 5;
     this.variant = g.floorNum === 1 ? 'bug' : g.floorNum === 2 ? 'bug2' : 'bug3';
@@ -138,6 +139,7 @@ class Bug extends Enemy {
 class Fly extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UNE MOUCHE À TOKENS';
     this.setHp(4);
     this.flying = true;
     this.r = 4;
@@ -170,6 +172,7 @@ class Fly extends Enemy {
 class Slime extends Enemy {
   constructor(g, x, y, small = false) {
     super(g, x, y);
+    this.label = 'UN SLIME SURAJUSTÉ';
     this.small = small;
     this.setHp(small ? 5 : 14);
     this.r = small ? 4 : 6;
@@ -225,6 +228,7 @@ class Slime extends Enemy {
 class Spambot extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UN SPAMBOT';
     this.setHp(11);
     this.cd = rand(1, 2);
     this.speed = 30;
@@ -260,6 +264,7 @@ class Spambot extends Enemy {
 class Captcha extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UN CAPTCHA';
     this.setHp(16);
     this.kb = 0;
     this.r = 7;
@@ -286,6 +291,7 @@ class Captcha extends Enemy {
 class Ghost extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UNE HALLUCINATION';
     this.setHp(13);
     this.flying = true;
     this.r = 6;
@@ -337,6 +343,7 @@ class Ghost extends Enemy {
 class MiniClip extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
+    this.label = 'UN TROMBONE';
     this.setHp(3);
     this.flying = true;
     this.r = 4;
