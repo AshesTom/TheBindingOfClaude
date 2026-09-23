@@ -73,6 +73,13 @@ function shadePass(c, skip = NOSHADE) {
       else if (!A(i + 2, j + 4) || !A(i + 3, j + 3) || !A(i + 1, j + 4)) t = -0.1;
       else if (!A(i - 1, j - 2) || !A(i - 2, j - 1)) t = 0.14;
       else if (!A(i - 2, j - 3) || !A(i - 3, j - 2)) t = 0.07;
+      // Volume : bandes douces qui suivent la forme (bas plus sombre, haut plus clair).
+      let db = 0;
+      while (db < 7 && A(i, j + db + 1)) db++;
+      let du = 0;
+      while (du < 7 && A(i, j - du - 1)) du++;
+      if (t === 0 && db < 6 && db < du) t = -0.08;
+      else if (t === 0 && du < 4 && du < db) t = 0.05;
       if (!t) continue;
       const n = rgb(tone(hex, t));
       d[k] = n[0]; d[k + 1] = n[1]; d[k + 2] = n[2];
@@ -159,46 +166,74 @@ function scale2x(src) {
 }
 
 // ---------------------------------------------------------------------------
-// Claude (k = facteur de détail : 1 en jeu, 2 pour les illustrations)
+// Claude, en trois modèles (k = facteur de détail : 1 en jeu, 2-3 pour les menus)
 
-function paintClaude(name, k, dir, frame, blink) {
-  const s = (v) => v * k;
+const CLAUDE_VARIANTS = {
+  haiku: { body: '#f4a07c', arm: '#e88c68', leg: '#c86c4a' },
+  sonnet: { body: '#e07b58', arm: '#d26c4c', leg: '#b8583a' },
+  opus: { body: '#d0603c', arm: '#c05434', leg: '#963e26' },
+};
+
+function paintClaude(name, k, dir, frame, blink, variant = 'sonnet') {
+  const s = (v) => Math.round(v * k);
+  const V = CLAUDE_VARIANTS[variant];
+  const oy = 6;
   const eyes = dir === 'left' ? [10, 22] : dir === 'right' ? [14, 26] : [12, 24];
-  paint(name, s(36), s(30), (x) => {
+  paint(name, s(36), s(36), (x) => {
     [7, 13, 19, 25].forEach((lx, i) => {
       const lift = frame === 1 && i % 2 === 1 ? 2 : 0;
-      RR(x, s(lx), s(20), s(4), s(10 - lift), s(1), '#b8583a');
+      RR(x, s(lx), s(oy + 18), s(4), s(12 - lift), s(1), V.leg);
     });
-    RR(x, 0, s(9), s(7), s(8), s(2), '#d26c4c');
-    RR(x, s(29), s(9), s(7), s(8), s(2), '#d26c4c');
-    RR(x, s(4), 0, s(28), s(23), s(5), '#e07b58');
+    if (variant === 'opus') RR(x, s(2), s(oy + 3), s(32), s(17), s(4), '#6a2a8a');
+    RR(x, 0, s(oy + 9), s(7), s(8), s(3), V.arm);
+    RR(x, s(29), s(oy + 9), s(7), s(8), s(3), V.arm);
+    RR(x, s(4), s(oy), s(28), s(23), s(7), V.body);
+    if (dir === 'up' && variant === 'opus') {
+      RR(x, s(7), s(oy + 3), s(22), s(21), s(4), '#7a3098');
+      R(x, s(7), s(oy + 3), s(22), s(2), '#f0c030');
+    }
+    // Accessoires
+    if (variant === 'haiku') {
+      R(x, s(17), s(1), s(2), s(6), '#3a7a30');
+      E(x, s(13), s(2), s(4), s(2), '#70c048');
+      E(x, s(23), s(3), s(4), s(2), '#88d058');
+    } else if (variant === 'sonnet') {
+      LN(x, s(23), s(oy + 1), s(29), s(0), '#f2f0f4', Math.max(2, s(3)));
+      LN(x, s(28), s(0), s(30), s(0), '#3a3a50', Math.max(1, s(2)));
+    } else {
+      R(x, s(10), s(3), s(16), s(4), '#f0c030');
+      for (const px of [10, 16, 22]) {
+        for (let r = 0; r < 3; r++) R(x, s(px + r), s(3 - (3 - Math.abs(1 - r)) + 0), s(1), s(3 - Math.abs(1 - r)), '#f0c030');
+      }
+    }
   }, {
     detail: (x) => {
-      if (dir === 'up') {
-        R(x, s(10), s(3), s(16), s(1), '#c86848');
-        return;
+      if (variant === 'opus') {
+        R(x, s(17), s(4), s(2), s(2), '#e02848');
+        R(x, s(12), s(4), s(1), s(1), '#50c0f0');
+        R(x, s(23), s(4), s(1), s(1), '#50c0f0');
       }
+      if (dir === 'up') return;
       for (const cx of eyes) {
         if (blink) {
-          R(x, s(cx - 2), s(12), s(5), s(2), '#1a0e10');
+          RR(x, s(cx - 2), s(oy + 12), s(5), s(2), s(1), '#1a0e10');
         } else {
-          RR(x, s(cx - 2), s(7), s(5), s(8), s(2), '#1a0e10');
-          R(x, s(cx - 1), s(8), s(2), s(2), '#ffffff');
-          R(x, s(cx + 1), s(12), Math.max(1, s(1) / 2 + 0.5), Math.max(1, s(1) / 2 + 0.5), '#ffffff');
+          RR(x, s(cx - 2), s(oy + 6), s(5), s(10), s(2), '#1a0e10');
+          R(x, s(cx - 1), s(oy + 7), s(2), s(3), '#ffffff');
+          R(x, s(cx + 1), s(oy + 13), Math.max(1, s(1)), Math.max(1, s(1)), '#ffffff');
         }
       }
-      E(x, s(eyes[0] - 4), s(17), s(2), s(1), '#f0907a');
-      E(x, s(eyes[1] + 4), s(17), s(2), s(1), '#f0907a');
-      R(x, s(4 + 6), s(2), s(14), Math.max(1, s(1)), '#f6ae90');
+      E(x, s(eyes[0] - 5), s(oy + 17), s(2), s(1), '#f5907c');
+      E(x, s(eyes[1] + 5), s(oy + 17), s(2), s(1), '#f5907c');
     },
   });
 }
 
 // ---------------------------------------------------------------------------
-// Sam (chibi à la Isaac)
+// Humanoïdes chibi (Sam, Prompt injecteur)
 
 function paintSam(name, k, angry) {
-  const s = (v) => v * k;
+  const s = (v) => Math.round(v * k);
   paint(name, s(26), s(40), (x) => {
     RR(x, s(8), s(31), s(4), s(8), s(1), '#3a5a8a');
     RR(x, s(14), s(31), s(4), s(8), s(1), '#3a5a8a');
@@ -226,15 +261,68 @@ function paintSam(name, k, angry) {
         LN(x, s(6), s(9), s(11), s(11), '#3a2418', Math.max(1, s(1)));
         LN(x, s(20), s(9), s(15), s(11), '#3a2418', Math.max(1, s(1)));
         R(x, s(11), s(18), s(4), Math.max(1, s(1)), '#8a3a3a');
-        R(x, s(10), s(19), s(1), s(1), '#8a3a3a');
-        R(x, s(15), s(19), s(1), s(1), '#8a3a3a');
       } else {
         R(x, s(7), s(9), s(4), Math.max(1, s(1)), '#4a3020');
         R(x, s(15), s(9), s(4), Math.max(1, s(1)), '#4a3020');
         R(x, s(11), s(18), s(4), Math.max(1, s(1)), '#b06a5a');
       }
-      E(x, s(6), s(16), s(1), s(1), '#f0a090');
-      E(x, s(20), s(16), s(1), s(1), '#f0a090');
+    },
+  });
+  // Si une photo pixelisée de Sam est disponible, elle remplace la tête dessinée.
+  if (typeof SAM_FACE !== 'undefined') applySamFace(name, k);
+}
+
+// Colle la tête issue de la photo pixelisée (voir tools/pixelize-face.js).
+function applySamFace(name, k) {
+  const spr = SPR[name];
+  const c = spr.img;
+  const x = c.getContext('2d');
+  const F = k >= 2 || typeof SAM_FACE_S === 'undefined' ? SAM_FACE : SAM_FACE_S;
+  const fw = F.w;
+  const fh = F.h;
+  const face = newCanvas(fw, fh);
+  const fx = face.getContext('2d');
+  for (let j = 0; j < fh; j++) {
+    for (let i = 0; i < fw; i++) {
+      const idx = F.data.charCodeAt(j * fw + i) - 48;
+      if (idx < 0) continue;
+      fx.fillStyle = F.palette[idx];
+      fx.fillRect(i, j, 1, 1);
+    }
+  }
+  const tw = Math.round(24 * k);
+  const th = Math.round((tw * fh) / fw);
+  const tmp = newCanvas(tw + 4, th + 4);
+  const tx = tmp.getContext('2d');
+  tx.imageSmoothingEnabled = false;
+  tx.drawImage(face, 2, 2, tw, th);
+  outlinePass(tmp);
+  x.clearRect(0, 0, c.width, Math.round(24 * k) + 2);
+  x.drawImage(tmp, Math.round((c.width - tmp.width) / 2), 0);
+  registerHD(name, c);
+}
+
+function paintInjector(name, frame) {
+  paint(name, 22, 30, (x) => {
+    const step = frame ? 1 : -1;
+    RR(x, 6 + step, 22, 4, 8, 1, '#3a3446');
+    RR(x, 12 - step, 22, 4, 8, 1, '#3a3446');
+    RR(x, 0, 14, 5, 9, 2, '#7a9a7c');
+    RR(x, 17, 12, 5, 9, 2, '#7a9a7c');
+    RR(x, 4, 14, 14, 11, 3, '#4a4a5c');
+    E(x, 11, 8, 9, 8, '#8aa88a');
+  }, {
+    detail: (x) => {
+      E(x, 7, 7, 2, 3, '#0a0608');
+      E(x, 15, 7, 2, 3, '#0a0608');
+      R(x, 7, 10, 1, 4, '#30c060');
+      R(x, 15, 10, 1, 6, '#30c060');
+      E(x, 11, 13, 3, 2, '#0a0608');
+      R(x, 9, 12, 1, 1, '#e8e0d0');
+      R(x, 12, 12, 1, 1, '#e8e0d0');
+      R(x, 6, 18, 3, 1, '#30c060');
+      R(x, 12, 20, 4, 1, '#30c060');
+      LN(x, 5, 16, 9, 22, '#2e2e3a');
     },
   });
 }
@@ -243,137 +331,224 @@ function paintSam(name, k, angry) {
 // Ennemis
 
 function paintBug(name, frame, body, dark) {
-  paint(name, 30, 22, (x) => {
+  paint(name, 32, 24, (x) => {
     for (let i = 0; i < 3; i++) {
       const up = (frame + i) % 2 ? -2 : 1;
-      const y = 8 + i * 5;
-      LN(x, 8, y, 2, y + up - 1, '#2a2226', 2);
-      LN(x, 2, y + up - 1, 1, y + up + 3, '#2a2226', 2);
-      LN(x, 22, y, 28, y + up - 1, '#2a2226', 2);
-      LN(x, 28, y + up - 1, 29, y + up + 3, '#2a2226', 2);
+      const y = 7 + i * 5;
+      LN(x, 9, y, 3, y + up - 1, '#241c22', 2);
+      LN(x, 3, y + up - 1, 1, y + up + 4, '#241c22', 2);
+      LN(x, 23, y, 29, y + up - 1, '#241c22', 2);
+      LN(x, 29, y + up - 1, 31, y + up + 4, '#241c22', 2);
     }
-    LN(x, 11, 5, 8, 0, '#2a2226', 1);
-    LN(x, 19, 5, 22, 0, '#2a2226', 1);
-    E(x, 15, 11, 10, 8, body);
-    E(x, 15, 17, 7, 4, dark);
+    LN(x, 12, 4, 9, 0, '#241c22', 1);
+    LN(x, 20, 4, 23, 0, '#241c22', 1);
+    E(x, 16, 10, 11, 8, body);
+    E(x, 16, 17, 8, 5, dark);
+    // Crocs
+    for (const fx of [12, 19]) {
+      R(x, fx, 21, 2, 2, '#f0e8d8');
+      R(x, fx + (fx < 16 ? 1 : 0), 23, 1, 1, '#f0e8d8');
+    }
   }, {
     detail: (x) => {
-      R(x, 15, 4, 1, 9, dark);
-      E(x, 11, 7, 2, 1, tone(body, 0.2));
-      E(x, 19, 9, 1, 1, tone(body, 0.15));
-      for (const cx of [11, 19]) {
+      R(x, 16, 3, 1, 9, tone(dark, -0.2));
+      E(x, 11, 5, 4, 2, tone(body, 0.25));
+      R(x, 20, 6, 2, 2, '#f070b8');
+      R(x, 22, 9, 1, 1, '#7fe8f0');
+      R(x, 9, 9, 2, 1, '#f8d048');
+      for (const cx of [12, 20]) {
         E(x, cx, 16, 3, 3, '#ffffff');
-        R(x, cx - 1 + (cx < 15 ? 1 : 0), 17, 2, 2, '#1a0e10');
+        R(x, cx - 1 + (cx < 16 ? 1 : 0), 17, 2, 2, '#c01830');
       }
-      LN(x, 8, 12, 13, 14, '#1a0e10', 1);
-      LN(x, 22, 12, 17, 14, '#1a0e10', 1);
-      R(x, 13, 20, 1, 2, '#e8e0d0');
-      R(x, 17, 20, 1, 2, '#e8e0d0');
+      LN(x, 9, 12, 14, 14, '#0a0608', 1);
+      LN(x, 23, 12, 18, 14, '#0a0608', 1);
     },
   });
 }
 
 function paintFly(name, frame) {
-  paint(name, 22, 18, (x) => {
+  paint(name, 24, 20, (x) => {
+    const wing = '#d8e8f4';
     if (frame === 0) {
-      E(x, 5, 5, 5, 4, '#dce8f0');
-      E(x, 17, 5, 5, 4, '#dce8f0');
+      E(x, 5, 5, 5, 4, wing);
+      E(x, 19, 5, 5, 4, wing);
     } else {
-      E(x, 4, 10, 5, 3, '#dce8f0');
-      E(x, 18, 10, 5, 3, '#dce8f0');
+      E(x, 4, 10, 5, 3, wing);
+      E(x, 20, 10, 5, 3, wing);
     }
-    E(x, 11, 11, 6, 6, '#3a2430');
+    E(x, 12, 12, 7, 7, '#3a2232');
   }, {
     detail: (x) => {
-      R(x, 6, 12, 10, 1, '#f8a040');
-      for (const cx of [8, 14]) {
-        E(x, cx, 10, 2, 2, '#e83040');
+      if (frame === 0) { LN(x, 3, 4, 7, 7, '#a8b8c8'); LN(x, 21, 4, 17, 7, '#a8b8c8'); }
+      R(x, 7, 14, 10, 1, '#f8a040');
+      R(x, 8, 17, 8, 1, '#f8a040');
+      for (const cx of [9, 15]) {
+        E(x, cx, 10, 3, 3, '#e02838');
         R(x, cx - 1, 9, 1, 1, '#ffffff');
       }
+      R(x, 11, 16, 1, 2, '#f0e8d8');
+      R(x, 13, 16, 1, 2, '#f0e8d8');
     },
   });
 }
 
-function paintSlime(name, small, col) {
+function paintSlime(name, small, col, frame = 0) {
   const k = small ? 0.62 : 1;
   const s = (v) => Math.round(v * k);
-  paint(name, s(26), s(20), (x) => {
-    E(x, s(13), s(13), s(12), s(6), col);
-    E(x, s(13), s(9), s(9), s(8), col);
-    E(x, s(5), s(17), s(2), s(2), col);
-    E(x, s(20), s(18), s(2), s(1), col);
+  const sq = frame ? 1 : 0;
+  paint(name, s(28), s(22), (x) => {
+    E(x, s(14), s(15), s(13 + sq), s(6 - sq), col);
+    E(x, s(14), s(10 + sq), s(10 - sq), s(8 - sq), col);
+    E(x, s(5), s(19), s(2), s(2), col);
+    E(x, s(22), s(20), s(2), s(1), col);
   }, {
     detail: (x) => {
-      E(x, s(9), s(5), Math.max(1, s(3)), Math.max(1, s(2)), '#ffffff');
-      for (const cx of [10, 17]) {
-        RR(x, s(cx - 1), s(9), Math.max(2, s(3)), Math.max(2, s(4)), 1, '#1a0e10');
-        R(x, s(cx - 1), s(9), 1, 1, '#ffffff');
+      E(x, s(9), s(6 + sq), Math.max(1, s(3)), Math.max(1, s(2)), '#ffffff');
+      E(x, s(20), s(15), Math.max(1, s(2)), Math.max(1, s(2)), tone(col, 0.2));
+      E(x, s(7), s(15), Math.max(1, s(1)), Math.max(1, s(1)), tone(col, 0.2));
+      for (const cx of [11, 18]) {
+        RR(x, s(cx - 1), s(9 + sq), Math.max(2, s(3)), Math.max(2, s(5)), 1, '#1a0e10');
+        R(x, s(cx - 1), s(9 + sq), 1, 1, '#ffffff');
       }
-      R(x, s(12), s(15), Math.max(2, s(4)), 1, '#1a0e10');
+      E(x, s(14), s(16), Math.max(1, s(3)), Math.max(1, s(2)), '#1a0e10');
+      R(x, s(14), s(17), Math.max(1, s(2)), 1, '#e05070');
     },
   });
 }
 
-function paintSpambot(name, screen, bulb, bodyCol = '#9aa2b4') {
-  paint(name, 24, 28, (x) => {
-    R(x, 11, 1, 2, 5, '#4a4452');
-    E(x, 12, 2, 2, 2, bulb);
-    RR(x, 6, 25, 4, 3, 1, '#3a3a48');
-    RR(x, 14, 25, 4, 3, 1, '#3a3a48');
-    RR(x, 5, 17, 14, 9, 3, tone(bodyCol, -0.12));
-    RR(x, 2, 5, 20, 14, 6, bodyCol);
+function paintSpambot(name, eye, bulb, bodyCol = '#9aa2b4') {
+  paint(name, 26, 30, (x) => {
+    R(x, 12, 1, 2, 5, '#4a4452');
+    E(x, 13, 2, 2, 2, bulb);
+    RR(x, 7, 27, 4, 3, 1, '#3a3a48');
+    RR(x, 15, 27, 4, 3, 1, '#3a3a48');
+    RR(x, 0, 18, 5, 6, 2, tone(bodyCol, -0.1));
+    RR(x, 21, 18, 5, 6, 2, tone(bodyCol, -0.1));
+    RR(x, 5, 17, 16, 11, 3, tone(bodyCol, -0.12));
+    RR(x, 3, 5, 20, 14, 7, bodyCol);
   }, {
     detail: (x) => {
-      RR(x, 5, 8, 14, 8, 2, screen);
-      R(x, 7, 10, 3, 2, '#ffffff');
-      R(x, 14, 10, 3, 2, '#ffffff');
-      R(x, 8, 13, 8, 1, tone(screen, 0.3));
-      R(x, 8, 19, 8, 5, '#f0f0f0');
-      LN(x, 8, 19, 11, 22, '#8a8290');
-      LN(x, 15, 19, 12, 22, '#8a8290');
+      RR(x, 5, 9, 16, 6, 3, '#141820');
+      E(x, 13, 12, 3, 2, eye);
+      R(x, 12, 11, 1, 1, '#ffffff');
+      R(x, 8, 19, 10, 7, '#f4f4f4');
+      LN(x, 8, 19, 13, 23, '#8a8290');
+      LN(x, 17, 19, 13, 23, '#8a8290');
+      R(x, 0, 20, 2, 2, '#1a1a22');
+      R(x, 24, 20, 2, 2, '#1a1a22');
     },
   });
 }
 
 function paintCaptcha(name, fire) {
-  paint(name, 28, 28, (x) => {
-    RR(x, 4, 22, 5, 6, 1, '#3a3a48');
-    RR(x, 19, 22, 5, 6, 1, '#3a3a48');
-    RR(x, 1, 1, 26, 23, 3, '#e4e4ee');
+  paint(name, 30, 30, (x) => {
+    RR(x, 4, 24, 5, 6, 1, '#3a3a48');
+    RR(x, 21, 24, 5, 6, 1, '#3a3a48');
+    RR(x, 1, 1, 28, 25, 4, '#e6e6f0');
   }, {
     detail: (x) => {
-      R(x, 4, 5, 9, 9, '#8a8a9a');
-      R(x, 5, 6, 7, 7, '#ffffff');
+      const cols = ['#78b8e8', '#88c070', '#e8c060', '#a0a0b0', '#e87860', '#78b8e8', '#88c070', '#a0a0b0', '#e8c060'];
+      for (let i = 0; i < 9; i++) R(x, 5 + (i % 3) * 6, 4 + Math.floor(i / 3) * 5, 5, 4, cols[i]);
+      R(x, 22, 5, 5, 5, '#8a8a9a');
+      R(x, 23, 6, 3, 3, '#ffffff');
       if (fire) {
-        LN(x, 6, 9, 8, 11, '#30a040', 2);
-        LN(x, 8, 11, 12, 5, '#30a040', 2);
+        RR(x, 5, 19, 20, 5, 2, '#1a0e10');
+        for (let i = 0; i < 5; i++) R(x, 6 + i * 4, 19, 2, 2, '#ffffff');
+        R(x, 23, 6, 3, 3, '#30a040');
+      } else {
+        R(x, 7, 20, 16, 2, '#a8a8b8');
       }
-      R(x, 15, 6, 9, 2, '#a8a8b8');
-      R(x, 15, 10, 6, 2, '#a8a8b8');
-      E(x, 20, 18, 3, 3, fire ? '#e84040' : '#3a80e0');
-      E(x, 20, 18, 1, 1, '#ffffff');
-      R(x, 4, 17, 10, 1, '#c8c8d8');
+      E(x, 24, 15, 2, 2, fire ? '#ff3040' : '#3a80e0');
     },
   });
 }
 
 function paintGhost(name, frame, col) {
-  paint(name, 26, 28, (x) => {
-    E(x, 13, 11, 11, 11, col);
-    R(x, 2, 11, 23, 12, col);
-    for (let i = 0; i < 4; i++) {
-      const cx = 5 + i * 6 - (frame ? 1 : 0);
-      E(x, cx, 23 + ((i + frame) % 2 ? 2 : 0), 3, 3, col);
+  paint(name, 28, 30, (x) => {
+    E(x, 14, 11, 12, 11, col);
+    R(x, 2, 11, 25, 12, col);
+    for (let i = 0; i < 5; i++) {
+      const cx = 3 + i * 5.5 - (frame ? 1 : 0);
+      E(x, cx, 23 + ((i + frame) % 2 ? 3 : 0), 3, 3, col);
     }
   }, {
     detail: (x) => {
-      E(x, 9, 11, 3, 4, '#1a0e10');
-      E(x, 17, 11, 3, 4, '#1a0e10');
-      R(x, 9, 11, 1, 1, '#ffffff');
-      R(x, 17, 11, 1, 1, '#ffffff');
-      E(x, 13, 18, 2, 3, '#1a0e10');
-      E(x, 8, 5, 2, 1, '#ffffff');
+      for (const cx of [9, 19]) {
+        E(x, cx, 11, 4, 4, '#1a0e10');
+        E(x, cx, 11, 2, 2, tone(col, -0.3));
+        R(x, cx, 11, 1, 1, '#ffffff');
+      }
+      E(x, 14, 19, 3, 3, '#1a0e10');
+      E(x, 8, 5, 3, 1, '#ffffff');
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mobilier du QG
+
+function paintHubProps() {
+  paint('terminal', 30, 34, (x) => {
+    R(x, 3, 22, 24, 12, '#3a3a46');
+    RR(x, 0, 0, 30, 24, 3, '#4a4a58');
+  }, {
+    detail: (x) => {
+      R(x, 3, 3, 24, 16, '#141c14');
+      for (let i = 0; i < 5; i++) R(x, 5, 5 + i * 3, 8 + ((i * 7) % 12), 1, i === 0 ? '#f8d048' : '#60e070');
+      R(x, 6, 25, 18, 3, '#20202a');
+      for (let i = 0; i < 6; i++) R(x, 7 + i * 3, 26, 2, 1, '#8a8a9a');
+    },
+  });
+  paint('modelpod', 30, 42, (x) => {
+    RR(x, 0, 32, 30, 10, 3, '#4a4a58');
+    RR(x, 3, 0, 24, 34, 10, '#9ad0e8');
+  }, {
+    detail: (x) => {
+      R(x, 6, 5, 2, 20, '#e0f8ff');
+      R(x, 3, 34, 24, 2, '#f0a060');
+      for (let i = 0; i < 4; i++) R(x, 6 + i * 6, 38, 3, 2, i % 2 ? '#60e0ff' : '#f8d048');
+    },
+  });
+  paint('pathmap', 34, 24, (x) => {
+    R(x, 4, 14, 3, 10, '#5a3a24');
+    R(x, 27, 14, 3, 10, '#5a3a24');
+    R(x, 0, 6, 34, 10, '#7a5030');
+    R(x, 3, 0, 28, 10, '#e8d8b0');
+  }, {
+    detail: (x) => {
+      LN(x, 7, 7, 14, 3, '#a8281c', 1);
+      LN(x, 14, 3, 20, 7, '#a8281c', 1);
+      LN(x, 14, 3, 26, 2, '#3a70c0', 1);
+      R(x, 25, 1, 3, 3, '#e8404a');
+    },
+  });
+  paint('dummy', 20, 30, (x) => {
+    R(x, 9, 20, 2, 10, '#6a4a30');
+    R(x, 3, 28, 14, 2, '#5a3a24');
+    E(x, 10, 12, 8, 9, '#c8a878');
+    R(x, 0, 11, 20, 3, '#b89868');
+  }, {
+    detail: (x) => {
+      E(x, 10, 12, 5, 5, '#e84848');
+      E(x, 10, 12, 3, 3, '#f0e0c0');
+      E(x, 10, 12, 1, 1, '#e84848');
+      LN(x, 4, 6, 7, 9, '#8a6a48');
+    },
+  });
+  paint('rock_4', 28, 24, (x) => {
+    R(x, 0, 16, 28, 8, '#6a3a24');
+    R(x, 2, 8, 24, 8, '#3a5a8a');
+    R(x, 5, 0, 18, 8, '#7a2a2a');
+  }, {
+    detail: (x) => {
+      R(x, 0, 18, 28, 1, '#e8d8b0');
+      R(x, 2, 10, 24, 1, '#e8d8b0');
+      R(x, 5, 2, 18, 1, '#e8d8b0');
+      R(x, 12, 3, 2, 4, '#f0c030');
+    },
+  });
+  paint('rock_5', 26, 26, (x) => RR(x, 0, 4, 26, 22, 3, '#6a4030'), {
+    detail: (x) => { R(x, 3, 8, 20, 2, '#8a5a40'); R(x, 3, 16, 20, 2, '#8a5a40'); },
   });
 }
 
@@ -518,10 +693,10 @@ function paintRocks() {
 // Boss
 
 function paintBosses() {
-  for (const rage of [0, 1]) {
-    const body = rage ? '#b83848' : '#4a9a3a';
+  for (const [pre, calm, angry] of [['bb', '#4a9a3a', '#b83848'], ['bq', '#8a48c8', '#d04890']]) for (const rage of [0, 1]) {
+    const body = rage ? angry : calm;
     for (const f of [0, 1]) {
-      paint(`bb_${rage}_${f}`, 60, 48, (x) => {
+      paint(`${pre}_${rage}_${f}`, 60, 48, (x) => {
         for (let i = 0; i < 3; i++) {
           const up = (f + i) % 2 ? -3 : 2;
           const y = 14 + i * 8;
@@ -607,7 +782,7 @@ function doorCanvas(themeId, kind, state) {
   const s = (v) => Math.round(v * 4 / 3);
   const x = c.getContext('2d');
   const frames = {
-    normal: ['#7a6a60', '#8a7a8a', '#9a6ac0'][themeId - 1],
+    normal: ['#7a6a60', '#8a7a8a', '#9a6ac0', '#8a6a44', '#a8704a'][themeId - 1],
     boss: '#8a2434',
     treasure: '#d8a830',
     shop: '#4a9a50',
@@ -654,7 +829,7 @@ function doorCanvas(themeId, kind, state) {
     }
     x.drawImage(inner, 0, 0);
   } else {
-    const wood = ['#7a4a2c', '#4a5a74', '#5a3a80'][themeId - 1];
+    const wood = ['#7a4a2c', '#4a5a74', '#5a3a80', '#6a3a22', '#7a4a2c'][themeId - 1];
     E(x, s(24), s(16), s(11), s(6), wood);
     R(x, s(13), s(16), s(22), s(20), wood);
     for (let i = 15; i < 35; i += 4) R(x, s(i), s(12), 1, s(24), tone(wood, -0.18));
@@ -749,40 +924,31 @@ function buildHD() {
     registerHD(name, scale2x(s.img));
   }
   // 2. Personnages repeints.
-  for (const dir of ['down', 'left', 'right', 'up']) {
-    for (const f of [0, 1]) {
-      paintClaude(`claude_${dir}_${f}`, 1, dir, f, false);
-      paintClaude(`claudeXL_${dir}_${f}`, 2, dir, f, false);
+  for (const v of ['haiku', 'sonnet', 'opus']) {
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      for (const f of [0, 1]) paintClaude(`${v}_${dir}_${f}`, 1, dir, f, false, v);
+      paintClaude(`${v}XL_${dir}_0`, 2, dir, 0, false, v);
     }
+    paintClaude(`${v}_blink`, 1, 'down', 0, true, v);
+    paintClaude(`${v}XL_blink`, 2, 'down', 0, true, v);
+    paintClaude(`${v}XXL_down_0`, 3, 'down', 0, false, v);
+    paintClaude(`${v}XXL_blink`, 3, 'down', 0, true, v);
   }
-  paintClaude('claude_blink', 1, 'down', 0, true);
-  for (const dir of ['down', 'right', 'up']) paintClaude(`claudeXXL_${dir}_0`, 3, dir, 0, false);
-  paintClaude('claudeXXL_blink', 3, 'down', 0, true);
-  // Accessoires des illustrations
-  paint('book', 16, 12, (x) => {
-    R(x, 0, 0, 16, 12, '#c83a3a');
-    R(x, 2, 9, 14, 3, '#f0e8d8');
-  }, { detail: (x) => { R(x, 2, 2, 2, 7, '#f8d048'); } });
-  paint('book2', 16, 12, (x) => {
-    R(x, 0, 0, 16, 12, '#3a7ad0');
-    R(x, 2, 9, 14, 3, '#f0e8d8');
-  }, { detail: (x) => { R(x, 2, 2, 2, 7, '#f0f0f0'); } });
-  paint('bulb', 12, 16, (x) => {
-    E(x, 6, 6, 6, 6, '#fff08a');
-    R(x, 3, 11, 6, 5, '#9a9aa8');
-  }, { detail: (x) => { R(x, 3, 3, 2, 2, '#ffffff'); R(x, 3, 13, 6, 1, '#6a6a78'); } });
-  paint('redbutton', 34, 20, (x) => {
-    R(x, 0, 12, 34, 8, '#3a3a44');
-    E(x, 17, 10, 14, 7, '#e02830');
-  }, { detail: (x) => { E(x, 12, 7, 4, 2, '#ff9090'); } });
-  paintClaude('claudeXL_blink', 2, 'down', 0, true);
+  // Alias "claude_*" : le modèle classique (Sonnet).
+  for (const [n, spr] of Object.entries(SPR)) {
+    if (n.startsWith('sonnet')) SPR['claude' + n.slice(6)] = spr;
+  }
+  paintClaude('claudeXL_down_1', 2, 'down', 1, false, 'sonnet');
+  paintClaude('claudeXL_up_1', 2, 'up', 1, false, 'sonnet');
+  paintClaude('claudeXXL_right_0', 3, 'right', 0, false, 'sonnet');
+  paintClaude('claudeXXL_up_0', 3, 'up', 0, false, 'sonnet');
   paintSam('sam', 1, false);
   paintSam('samXL', 2, false);
   paintSam('samXL_angry', 2, true);
   const bugCols = [['bug', '#5aa844', '#2e5a28'], ['bug2', '#d04848', '#6a2030'], ['bug3', '#d860b0', '#6a2860']];
-  for (const [n, b, d] of bugCols) {
-    paintBug(n + '_a', 0, b, d);
-    paintBug(n + '_b', 1, b, d);
+  for (const [n, b2, d] of bugCols) {
+    paintBug(n + '_a', 0, b2, d);
+    paintBug(n + '_b', 1, b2, d);
   }
   paintFly('fly_a', 0);
   paintFly('fly_b', 1);
@@ -790,13 +956,16 @@ function buildHD() {
   paintSlime('slime_s', true, '#6ac04a');
   paintSlime('slime2', false, '#58c0e0');
   paintSlime('slime2_s', true, '#58c0e0');
-  paintSpambot('spambot', '#203048', '#f8d048');
-  paintSpambot('spambot_fire', '#502028', '#ff4050');
-  paintSpambot('vendor', '#1a4020', '#78d05a', '#c0c8a0');
+  paintSpambot('spambot', '#e04050', '#f8d048');
+  paintSpambot('spambot_fire', '#ff9040', '#ff4050');
+  paintSpambot('vendor', '#60e070', '#78d05a', '#c0c8a0');
   paintCaptcha('captcha', false);
   paintCaptcha('captcha_fire', true);
   paintGhost('ghost', 0, '#c8aef0');
   paintGhost('ghost_b', 1, '#c8aef0');
+  paintInjector('injector_a', 0);
+  paintInjector('injector_b', 1);
+  paintHubProps();
   paintPickups();
   paintRocks();
   paintBosses();

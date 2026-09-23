@@ -2,7 +2,7 @@
 
 const FLOORS = [
   {
-    name: 'LE DATASET', music: 'floor1', boss: 'bug',
+    name: 'LE DATASET', short: 'DATASET', music: 'floor1', boss: 'bug',
     pool: ['bug', 'bug', 'fly', 'fly', 'slime', 'spambot'],
     theme: {
       id: 1, floor: '#3a2f3f', floor2: '#342a39', floorDot: '#4a3d50',
@@ -10,7 +10,7 @@ const FLOORS = [
     },
   },
   {
-    name: 'LA FERME DE SERVEURS', music: 'floor2', boss: 'hallu',
+    name: 'LA FERME DE SERVEURS', short: 'SERVEURS', music: 'floor2', boss: 'hallu',
     pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime'],
     theme: {
       id: 2, floor: '#1f2a3a', floor2: '#1a2432', floorDot: '#2c3b50',
@@ -18,14 +18,32 @@ const FLOORS = [
     },
   },
   {
-    name: 'LE CLOUD LATENT', music: 'floor3', boss: 'sam',
-    pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime', 'ghost'],
+    name: 'LE CLOUD LATENT', short: 'CLOUD', music: 'floor3', boss: 'sam',
+    pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime', 'ghost', 'injector'],
     theme: {
       id: 3, floor: '#2a1838', floor2: '#24142f', floorDot: '#3e2452',
       wall: '#4a2a60', wallDark: '#1a0c26', wallLight: '#7a4a9a', frame: '#c070d0',
     },
   },
+  {
+    // Chemin alternatif de l'étage 2 (à débloquer au QG).
+    name: 'LES ARCHIVES OUBLIÉES', short: 'ARCHIVES', music: 'floor2', boss: 'queen',
+    pool: ['injector', 'injector', 'fly', 'slime', 'spambot', 'bug'],
+    theme: {
+      id: 4, floor: '#3a2a1c', floor2: '#342518', floorDot: '#4e3a26',
+      wall: '#4a3222', wallDark: '#1e140c', wallLight: '#7a5a3a', frame: '#9a7a4a',
+    },
+  },
 ];
+
+// Le QG entre deux runs.
+const HUB_THEME = {
+  id: 5, floor: '#3a2a26', floor2: '#34241f', floorDot: '#4a362c',
+  wall: '#5a3a30', wallDark: '#22140f', wallLight: '#8a5a44', frame: '#c07850',
+};
+
+// Ordre des étages : à l'étage 2, on peut prendre les Archives.
+const FLOOR_ROUTE = [[0], [1, 3], [2]];
 
 // Gabarits de salles (13 x 7 intérieur). # = rocher, c = fichier corrompu.
 const ROOM_TEMPLATES = [
@@ -146,15 +164,15 @@ function doorAtTile(tx, ty) {
 const MAP_W = 9;
 const MAP_H = 8;
 
-function generateFloor(n) {
+function generateFloor(n, def) {
   for (let attempt = 0; attempt < 500; attempt++) {
-    const f = tryGenerate(n);
+    const f = tryGenerate(n, def);
     if (f) return f;
   }
   throw new Error('Impossible de générer l\'étage');
 }
 
-function tryGenerate(n) {
+function tryGenerate(n, def) {
   const target = Math.min(16, 6 + n * 2 + randInt(0, 2));
   const grid = {};
   const rooms = [];
@@ -232,12 +250,12 @@ function tryGenerate(n) {
     }
   }
 
-  for (const r of rooms) buildRoom(r, n);
+  for (const r of rooms) buildRoom(r, n, def);
 
   return { n, rooms, grid, start, boss, key, get: (x, y) => grid[key(x, y)] };
 }
 
-function buildRoom(r, n) {
+function buildRoom(r, n, def) {
   const tiles = new Array(ROOM_W * ROOM_H).fill(0);
   for (let y = 0; y < ROOM_H; y++) {
     for (let x = 0; x < ROOM_W; x++) {
@@ -257,7 +275,7 @@ function buildRoom(r, n) {
       applyTemplate(r, tpl);
     }
     const count = Math.min(7, 2 + n + randInt(0, 2));
-    const pool = FLOORS[n - 1].pool;
+    const pool = def.pool;
     // Salles "thématiques" : parfois un seul type d'ennemi.
     const main = choice(pool);
     const second = choice(pool);

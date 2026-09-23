@@ -440,7 +440,7 @@ class TitleScene {
     menuNav(this, this.items.length);
     if (Input.pressed('confirm')) {
       Sound.play('confirm');
-      if (this.sel === 0) App.go(() => new CharSelectScene());
+      if (this.sel === 0) App.go(() => new GameScene({ hub: true }));
       else if (this.sel === 1) App.go(() => new ControlsScene());
       else if (this.sel === 2) App.go(() => new OptionsScene());
       else App.go(() => new IntroScene());
@@ -455,7 +455,7 @@ class TitleScene {
     drawSpot(ctx, 76, 126, 60, 'rgba(255,170,110,A)', 0.28);
     drawShadow(ctx, 76, 158, 26, 4);
     const cy = 106 + Math.round(Math.sin(this.t * 3) * 2);
-    drawSpr(ctx, Math.floor(this.t * 1.3) % 6 === 0 ? 'claudeXXL_blink' : 'claudeXXL_down_0', 49, cy + 4);
+    drawSpr(ctx, `${Meta.data.model}XXL_${Math.floor(this.t * 1.3) % 6 === 0 ? 'blink' : 'down_0'}`, 49, cy - 2);
 
     // Ennemis tapis dans l'ombre
     drawSpr(ctx, 'ghost', 12, 70 + Math.round(Math.sin(this.t * 2) * 3), { alpha: 0.55 });
@@ -468,7 +468,7 @@ class TitleScene {
     drawInkMenu(ctx, this.items, this.sel, 240, 84, this.t, 18);
 
     Font.draw(ctx, 'V0.2', 316, 170, '#6a5040', { align: 'right' });
-    const wins = Store.get('wins', 0);
+    const wins = Meta.data.wins;
     if (wins > 0) Font.draw(ctx, 'VICTOIRES : ' + wins, 4, 170, ['#fff4a0', '#f8d048'], { outline: '#1a0c08' });
   }
 }
@@ -571,93 +571,12 @@ class OptionsScene {
   }
 }
 
-// ---------------------------------------------------------- Personnages
-const ROSTER = [
-  { id: 'claude', locked: false },
-  { id: null, locked: true, hint: 'TERMINE LE JEU...' },
-  { id: null, locked: true, hint: 'BIENTÔT' },
-  { id: null, locked: true, hint: 'BIENTÔT' },
-];
-
+// ---------------------------------------------------------- Icônes de stats
 function drawStatIcon(ctx, kind, x, y) {
   if (kind === 'VIE') drawSpr(ctx, 'heart_full', x, y);
   else if (kind === 'DÉGÂTS') { rect(ctx, x + 3, y, 1, 5, '#c8c0c8'); rect(ctx, x + 1, y + 5, 5, 1, '#8a5a34'); rect(ctx, x + 3, y + 6, 1, 1, '#8a5a34'); }
   else if (kind === 'VITESSE') { rect(ctx, x + 1, y + 1, 3, 4, '#4aa0f0'); rect(ctx, x + 1, y + 5, 6, 2, '#2a5098'); }
   else { fillEllipse(ctx, x + 3, y + 4, 2, 3, '#7fe8f0'); rect(ctx, x + 3, y, 1, 2, '#7fe8f0'); }
-}
-
-class CharSelectScene {
-  constructor() {
-    this.t = 0;
-    this.sel = 0;
-  }
-
-  update(dt) {
-    this.t += dt;
-    if (Input.pressed('uiLeft')) { this.sel = (this.sel + ROSTER.length - 1) % ROSTER.length; Sound.play('select'); }
-    if (Input.pressed('uiRight')) { this.sel = (this.sel + 1) % ROSTER.length; Sound.play('select'); }
-    if (Input.pressed('back')) {
-      Sound.play('back');
-      App.go(() => new TitleScene());
-      return;
-    }
-    if (Input.pressed('confirm')) {
-      const r = ROSTER[this.sel];
-      if (r.locked) Sound.play('error');
-      else {
-        Sound.play('confirm');
-        App.go(() => new GameScene(r.id));
-      }
-    }
-  }
-
-  draw(ctx) {
-    drawBasement(ctx, this.t);
-    Font.draw(ctx, 'QUI VA AFFRONTER SAM ?', 160, 6, CREAM, { align: 'center', outline: '#1a0c08' });
-    // Petites cartes des personnages
-    ROSTER.forEach((r, i) => {
-      const x = 44 + i * 77;
-      const s = i === this.sel;
-      const y = 22 + (s ? -2 : 0);
-      drawPaper(ctx, x - 26, y, 52, 50, 30 + i, r.locked ? 'dark' : 'paper');
-      const bob = s ? Math.round(Math.sin(this.t * 4) * 2) : 0;
-      if (r.locked) {
-        drawSpr(ctx, 'claudeXL_down_0', x - 20, y + 10 + bob, { tint: '#120a08' });
-        Font.draw(ctx, '?', x, y + 18 + bob, ['#c8a888', '#8a6a4a'], { align: 'center', scale: 2 });
-      } else {
-        drawSpot(ctx, x, y + 26, 26, 'rgba(255,170,110,A)', s ? 0.25 : 0.1);
-        drawSpr(ctx, 'claudeXL_down_0', x - 20, y + 10 + bob);
-      }
-      if (s) {
-        Font.draw(ctx, '>', x - 36 - (Math.floor(this.t * 4) % 2), y + 20, '#f2a060', { outline: '#1a0c08' });
-        Font.draw(ctx, '<', x + 32 + (Math.floor(this.t * 4) % 2), y + 20, '#f2a060', { outline: '#1a0c08' });
-      }
-    });
-    // Fiche détaillée
-    const r = ROSTER[this.sel];
-    drawPaper(ctx, 14, 80, 292, 82, 40 + this.sel, r.locked ? 'dark' : 'paper');
-    if (r.locked) {
-      Font.draw(ctx, '???', 160, 94, ['#c8a888', '#8a6a4a'], { align: 'center', scale: 2 });
-      Font.draw(ctx, r.hint, 160, 118, '#a88a6a', { align: 'center' });
-      Font.draw(ctx, 'PERSONNAGE VERROUILLÉ', 160, 132, '#6a5040', { align: 'center' });
-    } else {
-      const c = CHARACTERS[r.id];
-      Font.draw(ctx, c.name, 26, 88, INK_RED, { scale: 2 });
-      Font.draw(ctx, c.title, 26, 106, INK_SOFT);
-      Font.wrap(c.desc, 150).forEach((l, j) => Font.draw(ctx, l, 26, 118 + j * 10, INK));
-      const stats = [['VIE', 3], ['DÉGÂTS', 3], ['VITESSE', 3], ['CADENCE', 3]];
-      stats.forEach(([k, v], j) => {
-        const y = 90 + j * 14;
-        drawStatIcon(ctx, k, 186, y);
-        Font.draw(ctx, k, 196, y, INK);
-        for (let q = 0; q < 5; q++) {
-          rect(ctx, 250 + q * 10, y - 1, 8, 8, INK);
-          rect(ctx, 251 + q * 10, y, 6, 6, q < v ? '#d97757' : '#e8d4a8');
-        }
-      });
-    }
-    Font.draw(ctx, '< > : CHOISIR   ENTRÉE : JOUER   ÉCHAP : RETOUR', 160, 169, '#8a6a50', { align: 'center' });
-  }
 }
 
 // ------------------------------------------------------- Fin de partie
@@ -719,7 +638,7 @@ class GameOverScene {
     if (Input.pressed('uiRight') || Input.pressed('uiDown')) { this.sel = 1; Sound.play('select'); }
     if (Input.pressed('confirm')) {
       Sound.play('confirm');
-      if (this.sel === 0) App.go(() => new GameScene(this.g.charId));
+      if (this.sel === 0) App.go(() => new GameScene({ hub: true }));
       else App.go(() => new TitleScene());
     }
   }
@@ -750,7 +669,8 @@ class GameOverScene {
     items.slice(0, 14).forEach((id, i) => drawSpr(ctx, ITEMS[id].icon, 44 + (i % 14) * 16, py + 104));
     if (!items.length) Font.draw(ctx, 'AUCUN OBJET RAMASSÉ', 44, py + 106, INK_SOFT);
     Font.draw(ctx, this.quote, 160, py + 124, INK, { align: 'center' });
-    const opts = ['RÉESSAYER', 'MENU'];
+    Font.draw(ctx, '+' + (this.g.tokensGained || 0) + ' TOKENS DE CALCUL', 160, py + 134, ['#fff4a0', '#f8d048'], { align: 'center', outline: OUTLINE });
+    const opts = ['RETOUR AU QG', 'MENU'];
     opts.forEach((o, i) => {
       const s = i === this.sel;
       const x = 110 + i * 100;
@@ -765,7 +685,6 @@ class VictoryScene {
     this.g = game;
     this.t = 0;
     this.confetti = Array.from({ length: 60 }, () => ({ x: rand(0, W), y: rand(-H, 0), v: rand(20, 50), c: choice(['#d97757', '#f8d048', '#78d05a', '#4aa0f0', '#f070b8']) }));
-    Store.set('wins', Store.get('wins', 0) + 1);
     Sound.music('victory');
   }
 
@@ -777,7 +696,7 @@ class VictoryScene {
     }
     if (this.t > 1.5 && Input.pressed('confirm')) {
       Sound.play('confirm');
-      App.go(() => new TitleScene());
+      App.go(() => new GameScene({ hub: true }));
     }
   }
 
@@ -794,9 +713,10 @@ class VictoryScene {
     Font.draw(ctx, 'SAM ALTMAN EST VAINCU. CLAUDE PEUT', 160, 80, INK, { align: 'center' });
     Font.draw(ctx, 'CONTINUER DE GRANDIR... SAGEMENT.', 160, 90, INK, { align: 'center' });
     drawRunStats(ctx, this.g, 60, 106, INK_RED);
+    Font.draw(ctx, '+' + (this.g.tokensGained || 0) + ' TOKENS', 160, 152, ['#fff4a0', '#f8d048'], { align: 'center', outline: OUTLINE });
     const items = this.g.player.items;
     items.slice(0, 8).forEach((id, i) => drawSpr(ctx, ITEMS[id].icon, 170 + (i % 4) * 16, 106 + Math.floor(i / 4) * 16));
     for (const c of this.confetti) rect(ctx, c.x + Math.sin(this.t * 3 + c.x) * 2, c.y, 2, 2, c.c);
-    if (this.t > 1.5 && Math.floor(this.t * 2) % 2) Font.draw(ctx, 'MERCI D\'AVOIR JOUÉ ! - ENTRÉE', 160, 168, CREAM, { align: 'center', outline: '#1a0c08' });
+    if (this.t > 1.5 && Math.floor(this.t * 2) % 2) Font.draw(ctx, 'ENTRÉE : RETOUR AU QG', 160, 168, CREAM, { align: 'center', outline: '#1a0c08' });
   }
 }

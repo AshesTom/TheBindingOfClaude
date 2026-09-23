@@ -46,7 +46,7 @@ class Tear {
     const tx = Math.floor(this.x / TILE);
     const ty = Math.floor(this.y / TILE);
     const t = g.tileAt(tx, ty);
-    if (t === 1 || t === 2) return this.pop();
+    if (t === 1 || t === 2 || t === 4) return this.pop();
     if (t === 3) {
       g.damageTile(tx, ty);
       return this.pop();

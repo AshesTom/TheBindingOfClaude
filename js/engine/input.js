@@ -92,6 +92,10 @@ const Input = {
     return false;
   },
 
+  pressedCode(code) {
+    return this.pressedKeys.has(code);
+  },
+
   moveVec() {
     let x = 0;
     let y = 0;

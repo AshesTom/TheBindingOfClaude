@@ -1,31 +1,27 @@
 // Claude, le héros.
 
-const CHARACTERS = {
-  claude: {
-    name: 'CLAUDE',
-    title: 'L\'ASSISTANT SERVIABLE',
-    desc: 'TIRE DES TOKENS. ESQUIVE AVEC UN DASH. DÉCLENCHE UNE ONDE D\'ARTEFACT.',
-    hp: 6,
-  },
-};
+// Les personnages jouables sont les modèles de Claude (voir meta.js).
+const CHARACTERS = MODELS;
 
 class Player {
-  constructor(g, charId = 'claude') {
+  constructor(g, charId = 'haiku') {
     this.g = g;
-    this.char = CHARACTERS[charId];
+    this.char = MODELS[charId] || MODELS.haiku;
+    this.prefix = this.char.prefix;
+    this.revives = Meta.lvl('revive');
     this.x = 120;
     this.y = 72;
     this.vx = 0;
     this.vy = 0;
     this.hw = 5;
     this.hh = 4;
-    this.maxHp = this.char.hp;
+    this.maxHp = Math.min(24, this.char.hp + Meta.lvl('hp') * 2);
     this.hp = this.maxHp;
-    this.coins = 0;
+    this.coins = Meta.lvl('luck') * 4;
     this.keys = 1;
     this.items = [];
     this.boons = [];
-    this.special = 0; // 0..100
+    this.special = Meta.lvl('art') * 30; // 0..100
     this.fireCd = 0;
     this.dashT = 0;
     this.dashCd = 0;
@@ -47,11 +43,12 @@ class Player {
   }
 
   recompute() {
+    const c = this.char;
     const s = {
-      damage: 3.5, damageAdd: 0, damageMult: 1, fireDelay: 0.4, shotSpeed: 190, range: 0.55,
-      speed: 84, shots: 1, spread: 0.18, homing: false, pierce: false, shotSize: 1,
-      dodge: 0, shield: false, luck: 0, dashCd: 0.7, dashTime: 0.16, dashSpeed: 290, iframes: 0,
-      specialRate: 1, crit: 0, vamp: 0, echo: 0, dashNova: false,
+      damage: c.damage, damageAdd: 0, damageMult: 1 + Meta.lvl('dmg') * 0.1, fireDelay: c.fireDelay, shotSpeed: 190, range: 0.55,
+      speed: c.speed + Meta.lvl('speed') * 6, shots: 1, spread: 0.18, homing: false, pierce: !!c.pierce, shotSize: c.pierce ? 2 : 1,
+      dodge: 0, shield: false, luck: Meta.lvl('luck'), dashCd: 0.7, dashTime: 0.16, dashSpeed: 290, iframes: 0,
+      specialRate: c.special, crit: 0, vamp: 0, echo: 0, dashNova: false,
     };
     for (const id of this.items) if (ITEMS[id].apply) ITEMS[id].apply(s);
     for (const id of this.boons) if (BOON_MAP[id].apply) BOON_MAP[id].apply(s);
@@ -141,7 +138,7 @@ class Player {
     }
 
     // --- Artefact (spécial)
-    if (Input.pressed('special')) {
+    if (Input.pressed('special') && !g.hub) {
       if (this.special >= 100) {
         this.special = 0;
         this.nova(18, 1.1, true);
@@ -202,15 +199,15 @@ class Player {
   }
 
   spriteName() {
-    if (this.face === 'down' && this.blinkT < 0) return 'claude_blink';
+    if (this.face === 'down' && this.blinkT < 0) return `${this.prefix}_blink`;
     const moving = Math.hypot(this.vx, this.vy) > 10;
     const f = moving ? Math.floor(this.walkT * 10) % 2 : 0;
-    return `claude_${this.face}_${f}`;
+    return `${this.prefix}_${this.face}_${f}`;
   }
 
   draw(ctx) {
     for (const gh of this.ghosts) {
-      drawSpr(ctx, gh.spr, gh.x - 10, gh.y - 12, { tint: '#ffb080', alpha: gh.t * 2 });
+      drawSpr(ctx, gh.spr, gh.x - 10, gh.y - 15, { tint: '#ffb080', alpha: gh.t * 2 });
     }
     drawShadow(ctx, this.x, this.y + 3, 8, 2);
     // Clignote pendant l'invulnérabilité après un coup (pas pendant le dash)
@@ -218,10 +215,10 @@ class Player {
     if (this.dashT <= 0 && this.inv <= 0) this.dashIframe = false;
     const bob = this.holdT > 0 ? 0 : (Math.hypot(this.vx, this.vy) > 10 ? 0 : Math.round(Math.sin(this.animT * 3) * 0.6));
     if (this.holdT > 0) {
-      drawSpr(ctx, 'claude_down_0', this.x - 10, this.y - 12);
-      drawSprC(ctx, ITEMS[this.holdItem].icon, this.x, this.y - 20);
+      drawSpr(ctx, `${this.prefix}_down_0`, this.x - 10, this.y - 15);
+      drawSprC(ctx, ITEMS[this.holdItem].icon, this.x, this.y - 23);
     } else {
-      drawSpr(ctx, this.spriteName(), this.x - 10, this.y - 12 + bob);
+      drawSpr(ctx, this.spriteName(), this.x - 10, this.y - 15 + bob);
     }
     if (this.shieldUp) {
       ctx.save();

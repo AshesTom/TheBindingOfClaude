@@ -132,7 +132,7 @@ class BossBug extends Boss {
     let x = this.x;
     if (this.state === 'tell' && !portrait) x += Math.round(Math.sin(this.t * 60) * 1.5);
     const f = Math.floor(this.t * (this.state === 'charge' ? 20 : 8)) % 2;
-    drawSprC(ctx, `bb_${this.rage ? 1 : 0}_${portrait ? 0 : f}`, x, this.y - 6, { flash: this.flash > 0 });
+    drawSprC(ctx, `${this.spr || 'bb'}_${this.rage ? 1 : 0}_${portrait ? 0 : f}`, x, this.y - 6, { flash: this.flash > 0 });
   }
 }
 
@@ -453,7 +453,31 @@ class BossSam extends Boss {
   }
 }
 
+// Boss des Archives : la Reine des bugs, qui pond des mouches.
+class BossQueen extends BossBug {
+  constructor(g, x, y) {
+    super(g, x, y);
+    this.name = 'LA REINE DES BUGS';
+    this.subtitle = 'ENVOYÉE PAR SAM. ELLE PROLIFÈRE.';
+    this.hp = this.maxHp = 280;
+    this.spr = 'bq';
+  }
+
+  ai(dt) {
+    const before = this.state;
+    super.ai(dt);
+    // Quand elle crache, elle pond aussi des mouches et tire en anneau.
+    if (before === 'spit' && this.state === 'walk') {
+      if (this.countMinions() < 6) {
+        for (let i = 0; i < 3; i++) this.g.spawnQueue.push(new Fly(this.g, this.x + rand(-16, 16), this.y + rand(-6, 10)));
+      }
+      this.ring(this.rage ? 14 : 10, 70, Math.random(), 'eb_purple');
+    }
+  }
+}
+
 const BOSS_TYPES = {
+  queen: BossQueen,
   bug: BossBug,
   hallu: BossHallu,
   sam: BossSam,

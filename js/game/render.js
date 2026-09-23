@@ -50,6 +50,18 @@ function renderRoomBG(room, theme, opts = {}) {
           if (lx > T - 3 || ly > T - 3) col = mixRgb(col, black, 0.5);
           if (ly > 5 && ly < 27 && lx > 5 && lx < 27 && ly % 4 === 0) col = mixRgb(col, black, 0.4);
           if (ly > 5 && ly < 27 && lx > 5 && lx < 27 && ly % 4 === 1) col = mixRgb(col, fDot, 0.3);
+        } else if (theme.id >= 4) {
+          // Parquet
+          const ph = 10;
+          const row = Math.floor(Y / ph);
+          const len = 70 + Math.floor(hash2(row, 7, seed) * 50);
+          const off = Math.floor(hash2(row, 3, seed) * len);
+          const px2 = (X + off) % len;
+          col = mixRgb(fA, fB, hash2(Math.floor((X + off) / len), row, seed) * 0.8);
+          if (Y % ph === 0) col = mixRgb(col, black, 0.55);
+          else if (Y % ph === 1) col = mixRgb(col, fDot, 0.4);
+          if (px2 === 0) col = mixRgb(col, black, 0.45);
+          if (Math.sin(X * 0.3 + row * 1.7 + Math.sin(X * 0.05) * 3) > 0.92) col = mixRgb(col, black, 0.15);
         } else {
           const neb = Math.sin(X * 0.025 + Math.sin(Y * 0.035) * 2) * 0.5 + 0.5;
           col = mixRgb(col, [96, 44, 128], dq(neb * 0.5, X, Y));
@@ -97,6 +109,23 @@ function renderRoomBG(room, theme, opts = {}) {
           else if (a < 3) col = mixRgb(col, wL, 0.35);
           if (a % 6 === 0 && across % T > 6 && across % T < 24) col = mixRgb(col, black, 0.35);
           if (a % 6 === 0 && across % T === 26 && hash2(along, across, seed) > 0.5) col = hash2(along, 1, seed) > 0.3 ? [106, 240, 106] : [240, 160, 64];
+        } else if (theme.id === 4) {
+          // Étagères de livres
+          const along = inY ? Y : X;
+          const across = inY ? X : Y;
+          const shelf = across % T;
+          const bw = 4 + Math.floor(hash2(Math.floor(along / 5), Math.floor(across / T), seed) * 3);
+          const book = Math.floor(along / bw);
+          const bc = [[140, 50, 40], [50, 80, 130], [60, 110, 60], [150, 110, 50], [100, 50, 110]][Math.floor(hash2(book, Math.floor(across / T), seed) * 5)];
+          if (shelf > 3 && shelf < T - 4) col = mixRgb(bc, black, (1 - t) * 0.6);
+          if (along % bw === 0) col = mixRgb(col, black, 0.5);
+          if (shelf <= 3 || shelf >= T - 4) col = mixRgb(wM, black, shelf <= 1 || shelf >= T - 2 ? 0.5 : 0.1);
+        } else if (theme.id === 5) {
+          // Boiseries du QG
+          const along = inY ? Y : X;
+          if (along % 24 < 2) col = mixRgb(col, black, 0.5);
+          else if (along % 24 < 3) col = mixRgb(col, wL, 0.3);
+          if (t > 0.55 && t < 0.62) col = mixRgb(col, [200, 140, 80], 0.5);
         } else {
           const f = ((X + Y) % 18 < 2) || ((X - Y + 999) % 26 < 2);
           if (f) col = mixRgb(col, wL, 0.4);
@@ -123,6 +152,19 @@ function renderRoomBG(room, theme, opts = {}) {
   R(x, 0, HH - 2, WH, 2, '#000');
   R(x, 0, 0, 2, HH, '#000');
   R(x, WH - 2, 0, 2, HH, '#000');
+
+  // Tapis du QG
+  if (theme.id === 5) {
+    E(x, WH / 2, HH / 2 + 8, 120, 58, '#2a0e0e');
+    E(x, WH / 2, HH / 2 + 8, 116, 55, '#8a2a24');
+    E(x, WH / 2, HH / 2 + 8, 104, 48, '#c8703a');
+    E(x, WH / 2, HH / 2 + 8, 100, 45, '#7a2420');
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      E(x, WH / 2 + Math.cos(a) * 110, HH / 2 + 8 + Math.sin(a) * 51, 2, 2, '#f0c060');
+    }
+    E(x, WH / 2, HH / 2 + 8, 26, 12, '#c8703a');
+  }
 
   // Rochers (avec ombre portée)
   const rock = SPR['rock_' + theme.id];

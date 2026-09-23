@@ -24,7 +24,7 @@ class Enemy {
   }
 
   setHp(h) {
-    const m = 1 + (this.g.floorNum - 1) * 0.5;
+    const m = (1 + (this.g.floorNum - 1) * 0.5) * (1 + (this.g.heat || 0) * 0.15);
     this.hp = this.maxHp = h * m;
   }
 
@@ -372,7 +372,66 @@ class MiniClip extends Enemy {
   }
 }
 
+// Prompt injecteur : zombie qui s'énerve quand on le touche.
+class Injector extends Enemy {
+  constructor(g, x, y) {
+    super(g, x, y);
+    this.label = 'UN PROMPT INJECTEUR';
+    this.setHp(13);
+    this.r = 6;
+    this.rageT = 0;
+  }
+
+  hurt(dmg, kx, ky) {
+    const ok = super.hurt(dmg, kx, ky);
+    if (ok && !this.dead) this.rageT = 1.6;
+    return ok;
+  }
+
+  ai(dt) {
+    if (this.rageT > 0) this.rageT -= dt;
+    const d = this.g.pathDir(this);
+    const sp = this.rageT > 0 ? 62 : 26;
+    this.move(d.x * sp * dt, d.y * sp * dt);
+  }
+
+  drawSelf(ctx) {
+    const f = Math.floor(this.t * (this.rageT > 0 ? 10 : 4)) % 2;
+    this.drawSprite(ctx, f ? 'injector_a' : 'injector_b', this.rageT > 0 ? Math.round(Math.sin(this.t * 40)) : 0);
+  }
+}
+
+// Mannequin d'entraînement du QG : indestructible, affiche les dégâts.
+class Dummy extends Enemy {
+  constructor(g, x, y) {
+    super(g, x, y);
+    this.label = 'LE MANNEQUIN';
+    this.hp = this.maxHp = 1e9;
+    this.kb = 0;
+    this.contact = 0;
+    this.spawnT = 0;
+    this.r = 8;
+    this.wob = 0;
+  }
+
+  hurt(dmg) {
+    this.flash = 0.08;
+    this.wob = 0.3;
+    this.g.floatText(this.x + rand(-5, 5), this.y - 24, dmg.toFixed(1), '#ffffff');
+    return true;
+  }
+
+  ai(dt) {
+    if (this.wob > 0) this.wob -= dt;
+  }
+
+  drawSelf(ctx) {
+    this.drawSprite(ctx, 'dummy', this.wob > 0 ? Math.round(Math.sin(this.t * 50)) : 0);
+  }
+}
+
 const ENEMY_TYPES = {
+  injector: Injector,
   bug: Bug,
   fly: Fly,
   slime: Slime,

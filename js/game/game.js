@@ -1,9 +1,14 @@
 // Scène de jeu : exploration des étages, combats, HUD.
 
 class GameScene {
-  constructor(charId = 'claude') {
-    this.charId = charId;
-    this.player = new Player(this, charId);
+  // opts : { model, hub } — hub = le QG entre deux runs.
+  constructor(opts = {}) {
+    if (typeof opts === 'string') opts = { model: opts };
+    this.model = opts.model || Meta.data.model;
+    this.hub = !!opts.hub;
+    this.heat = this.hub ? 0 : Meta.data.heat;
+    this.runTokens = 0;
+    this.player = new Player(this, this.model);
     this.floorNum = 0;
     this.stats = { kills: 0, time: 0, rooms: 0, cause: null };
     this.tears = [];
@@ -30,14 +35,60 @@ class GameScene {
     this.denyT = 0;
     this.t = 0;
     this.flowTimer = 0;
-    this.nextFloor();
+    if (this.hub) this.setupHub();
+    else {
+      if (this.player.char.startItem) {
+        const it = this.rollItem('treasure');
+        if (it) { this.player.items.push(it); if (ITEMS[it].onPickup) ITEMS[it].onPickup(this.player, this); this.player.recompute(); this.addFamiliar(it); }
+      }
+      this.nextFloor(0);
+    }
+  }
+
+  addFamiliar(id) {
+    const it = ITEMS[id];
+    if (it.familiar === 'subagent') this.familiars.push(new SubAgent(this, this.familiars.filter((f) => f instanceof SubAgent).length));
+    if (it.familiar === 'orbital') this.familiars.push(new Orbital(this, this.familiars.filter((f) => f instanceof Orbital).length));
+  }
+
+  // ------------------------------------------------------------------- QG
+  setupHub() {
+    const tiles = new Array(ROOM_W * ROOM_H).fill(0);
+    for (let y = 0; y < ROOM_H; y++) {
+      for (let x = 0; x < ROOM_W; x++) if (!x || !y || x === ROOM_W - 1 || y === ROOM_H - 1) tiles[y * ROOM_W + x] = 1;
+    }
+    const room = { gx: 4, gy: 4, type: 'hub', doors: {}, locks: {}, tiles, hp: {}, cleared: true, visited: true, seen: true, pickups: [], pedestals: [], setup: true };
+    this.floorDef = { name: 'LE QG DE CLAUDE', music: 'title', theme: HUB_THEME, pool: [] };
+    this.floor = { rooms: [room], start: room, get: () => null };
+    this.floorNum = 0;
+    this.stations = [
+      { id: 'portal', x: 120, y: 30, label: 'DESCENDRE' },
+      { id: 'upgrades', x: 50, y: 46, spr: 'terminal', label: 'ENTRAÎNEMENT' },
+      { id: 'models', x: 190, y: 46, spr: 'modelpod', label: 'MODÈLES' },
+      { id: 'paths', x: 50, y: 112, spr: 'pathmap', label: 'CHEMINS' },
+    ];
+    for (const st of this.stations) {
+      if (st.id === 'portal') continue;
+      const tx = Math.floor(st.x / TILE);
+      const ty = Math.floor(st.y / TILE);
+      tiles[ty * ROOM_W + tx] = 4;
+    }
+    this.player.x = 120;
+    this.player.y = 96;
+    this.enterRoom(room, null);
+    this.enemies.push(new Dummy(this, 190, 112));
+    this.hubMenu = null;
+    this.fadeIn = 0.6;
+    Sound.music('title');
   }
 
   // ------------------------------------------------------------------ Étages
-  nextFloor() {
+  nextFloor(defIndex) {
     this.floorNum++;
-    this.floorDef = FLOORS[this.floorNum - 1];
-    this.floor = generateFloor(this.floorNum);
+    if (defIndex === undefined) defIndex = FLOOR_ROUTE[this.floorNum - 1][0];
+    this.floorDef = FLOORS[defIndex];
+    this.floor = generateFloor(this.floorNum, this.floorDef);
+    if (this.floorNum > 1) this.runTokens += 10;
     this.player.x = 120;
     this.player.y = 72;
     this.enterRoom(this.floor.start, null);
@@ -75,7 +126,7 @@ class GameScene {
 
     if (!room.bg) {
       const opts = {};
-      if (room.type === 'start' && this.floorNum === 1) opts.tutorial = true;
+      if (room.type === 'start' && this.floorNum === 1 && Meta.data.runs < 2) opts.tutorial = true;
       else if (room.type === 'start') opts.label = this.floorDef.name;
       room.bg = renderRoomBG(room, this.floorDef.theme, opts);
     }
@@ -174,6 +225,7 @@ class GameScene {
       return true;
     }
     if (t === 2 || t === 3) return mode !== 'fly';
+    if (t === 4) return true;
     return false;
   }
 
@@ -318,6 +370,7 @@ class GameScene {
   onEnemyKilled(e) {
     const p = this.player;
     this.stats.kills++;
+    this.runTokens += e.boss ? 20 * this.floorNum : 1;
     const col = e instanceof Ghost ? '#a86ae8' : e instanceof Fly ? '#e8404a' : e instanceof Slime ? '#78d05a' : '#c8c0c8';
     this.burst(e.x, e.y - 4, e.boss ? 40 : 12, col, e.boss ? 120 : 70, 0.5);
     Sound.play('kill');
@@ -357,9 +410,20 @@ class GameScene {
     this.freeze = 0.07;
     Sound.play('hurt');
     this.burst(p.x, p.y - 4, 10, '#e8404a', 70, 0.4);
+    if (p.hp <= 0 && p.revives > 0) {
+      p.revives--;
+      p.hp = Math.max(2, Math.ceil(p.maxHp / 4) * 2);
+      p.inv = 2.5;
+      this.flash = 0.5;
+      this.clearEnemyBullets();
+      this.floatText(p.x, p.y - 24, 'CHECKPOINT RESTAURÉ !', '#78d05a');
+      Sound.play('boon');
+      return true;
+    }
     if (p.hp <= 0) {
       p.hp = 0;
       this.dead = true;
+      this.tokensGained = Meta.endRun(this, false);
       let killer = src && src.owner ? src.owner : src;
       if (killer instanceof EBullet) killer = this.bossRef || null;
       this.stats.killer = killer instanceof Enemy ? killer : null;
@@ -472,6 +536,7 @@ class GameScene {
     const p = this.player;
     r.cleared = true;
     this.stats.rooms++;
+    this.runTokens += 2;
     Sound.play('doorOpen');
     if (r.type === 'normal') {
       p.special = Math.min(100, p.special + 8 * p.stats.specialRate);
@@ -504,7 +569,7 @@ class GameScene {
     this.room.cleared = true;
     this.stats.rooms++;
     this.bossRef = null;
-    if (this.floorNum >= FLOORS.length) {
+    if (this.floorNum >= FLOOR_ROUTE.length) {
       this.victoryT = 3.5;
       Sound.stopMusic();
       return;
@@ -531,9 +596,15 @@ class GameScene {
     const r = this.room;
     const it = this.rollItem('boss');
     if (it) r.pedestals.push(new Pedestal(this, 120, 52, 'item', it));
-    r.trapdoor = { x: 120, y: 96 };
+    const route = FLOOR_ROUTE[this.floorNum] || [];
+    const open = route.filter((i) => i !== 3 || Meta.data.paths.archives);
+    if (open.length > 1) {
+      r.trapdoors = open.map((fi, k) => ({ x: 76 + k * 88, y: 98, route: fi, label: FLOORS[fi].short }));
+    } else {
+      r.trapdoors = [{ x: 120, y: 96, route: open[0] }];
+    }
     r.pickups.push(new Pickup(this, 'heart', 88, 80, rand(-20, 20), rand(-20, 20)));
-    this.burst(120, 96, 20, '#a86ae8', 80, 0.6);
+    for (const td of r.trapdoors) this.burst(td.x, td.y, 20, '#a86ae8', 80, 0.6);
   }
 
   // ------------------------------------------------------------ Update
@@ -545,10 +616,12 @@ class GameScene {
       for (const f of this.familiars) f.update(dt);
       if (this.victoryT <= 0) {
         const game = this;
+        this.tokensGained = Meta.endRun(this, true);
         App.go(() => new VictoryScene(game));
       }
       return;
     }
+    if (this.hubMenu) return this.updateHubMenu(dt);
     if (Input.pressed('pause') && !this.dead && !this.boonChoice && this.bossIntro <= 0) {
       this.paused = !this.paused;
       this.pauseSel = 0;
@@ -594,7 +667,7 @@ class GameScene {
     }
     if (this.descendT > 0) {
       this.descendT -= dt;
-      if (this.descendT <= 0) this.nextFloor();
+      if (this.descendT <= 0) this.nextFloor(this.nextRoute);
       return;
     }
 
@@ -666,10 +739,14 @@ class GameScene {
     }
 
     // Trappe vers l'étage suivant
-    if (r.trapdoor && dist(p.x, p.y, r.trapdoor.x, r.trapdoor.y) < 8 && p.holdT <= 0) {
-      this.descendT = 0.9;
-      Sound.play('stairs');
+    for (const td of r.trapdoors || []) {
+      if (dist(p.x, p.y, td.x, td.y) < 8 && p.holdT <= 0 && this.descendT <= 0) {
+        this.descendT = 0.9;
+        this.nextRoute = td.route;
+        Sound.play('stairs');
+      }
     }
+    if (this.hub) this.updateHub(dt);
 
     // Sortie de salle
     if (p.y < 7 && this.isDoorOpen('up')) this.changeRoom('up');
@@ -700,8 +777,13 @@ class GameScene {
     if (Input.pressed('confirm')) {
       Sound.play('confirm');
       if (this.pauseSel === 0) this.paused = false;
-      else if (this.pauseSel === 1) App.go(() => new GameScene(this.charId));
-      else App.go(() => new TitleScene());
+      else if (this.pauseSel === 1) {
+        if (!this.hub) Meta.endRun(this, false);
+        App.go(() => new GameScene({ hub: true }));
+      } else {
+        if (!this.hub) Meta.endRun(this, false);
+        App.go(() => new TitleScene());
+      }
     }
   }
 
@@ -774,7 +856,11 @@ class GameScene {
         if (r.tiles[i] === 3) drawDestructible(ctx, tx * TILE, ty * TILE, r.hp[i]);
       }
     }
-    if (r.trapdoor) drawTrapdoor(ctx, r.trapdoor.x, r.trapdoor.y, this.t);
+    for (const td of r.trapdoors || []) {
+      drawTrapdoor(ctx, td.x, td.y, this.t);
+      if (td.label) Font.draw(ctx, td.label, td.x, td.y - 17, INK, { align: 'center', outline: OUTLINE });
+    }
+    if (this.hub) this.drawHubProps(ctx);
     for (const pd of r.pedestals) pd.draw(ctx);
     for (const pk of r.pickups) pk.draw(ctx);
 
@@ -790,13 +876,13 @@ class GameScene {
         const k = this.descendT / 0.9;
         ctx.save();
         ctx.globalAlpha = k;
-        drawSpr(ctx, 'claude_down_0', this.player.x - 10, this.player.y - 12 + (1 - k) * 6);
+        drawSpr(ctx, `${this.player.prefix}_down_0`, this.player.x - 10, this.player.y - 15 + (1 - k) * 6);
         ctx.restore();
         continue;
       }
       if (e === this.player && this.dead) {
-        if (Math.floor(this.deathT * 20) % 2) drawSpr(ctx, 'claude_down_0', e.x - 10, e.y - 12, { flash: true });
-        else drawSpr(ctx, 'claude_blink', e.x - 10, e.y - 12);
+        if (Math.floor(this.deathT * 20) % 2) drawSpr(ctx, `${e.prefix}_down_0`, e.x - 10, e.y - 15, { flash: true });
+        else drawSpr(ctx, `${e.prefix}_blink`, e.x - 10, e.y - 15);
         continue;
       }
       e.draw(ctx);
@@ -858,7 +944,8 @@ class GameScene {
     for (const b of this.ebullets) if (b.delay <= 0) light(b.x, b.y, 12, 0.6);
     for (const e of this.enemies) if (e.boss) light(e.x, e.y, 50, 0.6);
     for (const pd of this.room.pedestals) if (!pd.taken) light(pd.x, pd.y - 6, 30, 0.8);
-    if (this.room.trapdoor) light(this.room.trapdoor.x, this.room.trapdoor.y, 26, 0.7);
+    for (const td of this.room.trapdoors || []) light(td.x, td.y, 26, 0.7);
+    if (this.hub) for (const st of this.stations) light(st.x, st.y, st.id === 'portal' ? 50 : 30, 0.7);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(lc, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -887,7 +974,180 @@ class GameScene {
     Font.draw(ctx, 'API STORE', v.x, v.y - 22, '#78d05a', { align: 'center', outline: '#1a1016' });
   }
 
+  // ------------------------------------------------------------- QG : logique
+  updateHub() {
+    const p = this.player;
+    this.nearStation = null;
+    for (const st of this.stations) {
+      if (dist(p.x, p.y, st.x, st.y + (st.id === 'portal' ? 0 : 10)) < 24) this.nearStation = st;
+    }
+    const st = this.nearStation;
+    if (!st) return;
+    if (st.id === 'portal') {
+      if (dist(p.x, p.y, st.x, st.y) < 13 && !this.leaving) {
+        this.leaving = true;
+        Sound.play('stairs');
+        App.go(() => new GameScene({ model: Meta.data.model }));
+      }
+      return;
+    }
+    if (Input.pressed('special') || Input.pressedCode('Enter')) {
+      this.hubMenu = { type: st.id, sel: 0, t: 0 };
+      Sound.play('confirm');
+    }
+  }
+
+  hubMenuItems() {
+    const m = this.hubMenu;
+    if (m.type === 'upgrades') return UPGRADES;
+    if (m.type === 'models') return MODEL_IDS;
+    return ['archives', 'heat'];
+  }
+
+  updateHubMenu(dt) {
+    const m = this.hubMenu;
+    m.t += dt;
+    this.updateParticles(dt);
+    const items = this.hubMenuItems();
+    const n = items.length;
+    const horiz = m.type === 'models';
+    if (Input.pressed(horiz ? 'uiLeft' : 'uiUp')) { m.sel = (m.sel + n - 1) % n; Sound.play('select'); }
+    if (Input.pressed(horiz ? 'uiRight' : 'uiDown')) { m.sel = (m.sel + 1) % n; Sound.play('select'); }
+    if (Input.pressed('back') || (m.t > 0.2 && Input.pressed('special'))) {
+      this.hubMenu = null;
+      Sound.play('back');
+      return;
+    }
+    const d = Meta.data;
+    if (m.type === 'paths' && items[m.sel] === 'heat') {
+      const dir = Input.pressed('uiLeft') ? -1 : Input.pressed('uiRight') ? 1 : 0;
+      if (dir) {
+        d.heat = clamp(d.heat + dir, 0, d.maxHeat);
+        Meta.save();
+        Sound.play(d.maxHeat ? 'select' : 'error');
+      }
+    }
+    if (!(Input.pressedCode('Enter') || Input.pressedCode('Space') || Input.pressedCode('NumpadEnter') || (Input.gpNow[0] && !Input.gpPrev[0]))) return;
+    let ok = false;
+    if (m.type === 'upgrades') ok = Meta.buyUpgrade(items[m.sel]);
+    else if (m.type === 'models') {
+      ok = Meta.buyModel(items[m.sel]);
+      if (ok) {
+        const old = this.player;
+        this.player = new Player(this, items[m.sel]);
+        this.player.x = old.x;
+        this.player.y = old.y;
+        this.burst(old.x, old.y - 6, 20, '#f8d048', 70, 0.6);
+      }
+    } else if (items[m.sel] === 'archives') ok = Meta.buyPath('archives');
+    else ok = true;
+    Sound.play(ok ? 'buy' : 'error');
+  }
+
+  // ------------------------------------------------------------- QG : dessin
+  drawHubProps(ctx) {
+    for (const st of this.stations) {
+      if (st.id === 'portal') {
+        const t = this.t;
+        for (let r = 16; r > 2; r -= 3) {
+          const w = r + Math.sin(t * 4 + r) * 1;
+          fillEllipseHD(ctx, st.x, st.y, w, w * 0.62, (r / 3) % 2 ? '#3a1060' : '#a050e0');
+        }
+        fillEllipseHD(ctx, st.x, st.y, 3, 2, '#ffffff');
+      } else {
+        const s = SPR[st.spr];
+        drawShadow(ctx, st.x, st.y + 8, s.w / 2, 2);
+        drawSpr(ctx, st.spr, st.x - s.w / 2, st.y + 9 - s.h);
+      }
+      const near = this.nearStation === st;
+      Font.draw(ctx, (near && st.id !== 'portal' ? 'E : ' : '') + st.label, st.x, st.y + (st.id === 'portal' ? 14 : 12), near ? INK_RED : INK_SOFT, { align: 'center', outline: OUTLINE });
+    }
+  }
+
+  drawHubHUD(ctx) {
+    const d = Meta.data;
+    const p = this.player;
+    drawSpr(ctx, 'tear_big', 4, 5);
+    Font.draw(ctx, String(d.tokens), 16, 6, ['#fff4e0', '#f2a060', '#d97757'], { outline: OUTLINE, scale: 2 });
+    Font.draw(ctx, 'TOKENS DE CALCUL', 4, 24, INK_SOFT);
+    Font.draw(ctx, 'LE QG DE CLAUDE', 160, 4, ['#fff0dc', '#f2c8a0', '#d99070'], { align: 'center', outline: OUTLINE });
+    Font.draw(ctx, p.char.name, 160, 15, INK_SOFT, { align: 'center', outline: OUTLINE });
+    const info = [['RUNS', d.runs], ['VICTOIRES', d.wins], ['RECORD', 'ÉT. ' + d.bestFloor]];
+    info.forEach(([k, v], i) => {
+      Font.draw(ctx, String(v), 316, 6 + i * 10, INK, { align: 'right' });
+      Font.draw(ctx, k, 316 - Font.width(String(v)) - 6, 6 + i * 10, INK_SOFT, { align: 'right' });
+    });
+    if (d.lastGain && this.t < 5) {
+      Font.draw(ctx, '+' + d.lastGain + ' TOKENS', 20, 40, ['#fff4a0', '#f8d048'], { outline: OUTLINE, alpha: Math.min(1, 5 - this.t) });
+    }
+    if (d.heat) Font.draw(ctx, 'SURCHAUFFE ' + d.heat, 20, 160, '#ff6040', { outline: OUTLINE });
+  }
+
+  drawHubMenu(ctx) {
+    const m = this.hubMenu;
+    const d = Meta.data;
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    rect(ctx, 0, 0, W, H, '#000');
+    ctx.restore();
+    drawPanel(ctx, 16, 10, 288, 160);
+    const title = { upgrades: 'ENTRAÎNEMENT', models: 'MODÈLES DE CLAUDE', paths: 'CHEMINS ET SURCHAUFFE' }[m.type];
+    Font.draw(ctx, title, 30, 20, ['#fff0dc', '#f2a060', '#d97757'], { outline: OUTLINE, scale: 2 });
+    drawSpr(ctx, 'tear_big', 252, 20);
+    Font.draw(ctx, String(d.tokens), 264, 22, '#f8d048', { outline: OUTLINE });
+    const items = this.hubMenuItems();
+    if (m.type === 'upgrades') {
+      items.forEach((u, i) => {
+        const y = 44 + i * 18;
+        const sel = i === m.sel;
+        const l = Meta.lvl(u.id);
+        if (sel) { ctx.save(); ctx.globalAlpha = 0.25; rect(ctx, 24, y - 3, 272, 17, u.color); ctx.restore(); }
+        rect(ctx, 28, y, 6, 6, u.color);
+        Font.draw(ctx, u.name, 40, y, sel ? '#ffffff' : INK);
+        Font.draw(ctx, u.desc, 40, y + 8, INK_SOFT);
+        for (let q = 0; q < u.costs.length; q++) rect(ctx, 200 + q * 8, y + 1, 6, 6, q < l ? u.color : '#3a2a34');
+        const cost = l >= u.costs.length ? 'MAX' : u.costs[l];
+        Font.draw(ctx, String(cost), 290, y + 1, l >= u.costs.length ? '#78d05a' : d.tokens >= cost ? '#f8d048' : '#8a6060', { align: 'right' });
+      });
+      Font.draw(ctx, 'ENTRÉE : ACHETER   ÉCHAP : FERMER', 160, 160, INK_SOFT, { align: 'center' });
+    } else if (m.type === 'models') {
+      items.forEach((id, i) => {
+        const md = MODELS[id];
+        const x = 34 + i * 88;
+        const sel = i === m.sel;
+        const owned = d.models[id];
+        drawPanel(ctx, x - 6, 42, 82, 108, sel ? 'red' : 'dark');
+        const bob = sel ? Math.round(Math.sin(this.t * 4) * 2) : 0;
+        drawSpr(ctx, `${id}XL_down_0`, x + 15, 48 + bob, owned ? {} : { tint: '#120a08' });
+        Font.draw(ctx, md.name.replace('CLAUDE ', ''), x + 35, 88, sel ? '#ffffff' : INK, { align: 'center' });
+        Font.draw(ctx, md.title, x + 35, 97, INK_SOFT, { align: 'center' });
+        ['VIE', 'DÉG', 'VIT', 'CAD'].forEach((k, j) => {
+          Font.draw(ctx, k, x, 106 + j * 8, INK_SOFT);
+          for (let q = 0; q < 5; q++) rect(ctx, x + 26 + q * 8, 107 + j * 8, 6, 5, q < md.bars[j] ? '#d97757' : '#3a2a34');
+        });
+        const status = d.model === id ? 'ÉQUIPÉ' : owned ? 'CHOISIR' : md.cost + ' TOKENS';
+        Font.draw(ctx, status, x + 35, 139, d.model === id ? '#78d05a' : owned ? INK : d.tokens >= md.cost ? '#f8d048' : '#8a6060', { align: 'center' });
+      });
+      Font.wrap(MODELS[items[m.sel]].desc, 270).forEach((l, j) => Font.draw(ctx, l, 160, 155 + j * 8, INK, { align: 'center' }));
+    } else {
+      const rows = [
+        ['LES ARCHIVES OUBLIÉES', d.paths.archives ? 'DÉBLOQUÉ' : PATHS.archives.cost + ' TOKENS', 'UN CHEMIN ALTERNATIF APRÈS L\'ÉTAGE 1, AVEC SA PROPRE REINE.'],
+        ['SURCHAUFFE : ' + d.heat + ' / ' + d.maxHeat, d.maxHeat ? '< >' : 'VERROUILLÉ', d.maxHeat ? 'ENNEMIS +15% PV PAR NIVEAU, TOKENS +25%.' : 'GAGNE UNE PARTIE POUR DÉBLOQUER.'],
+      ];
+      rows.forEach(([a, b, c], i) => {
+        const y = 50 + i * 40;
+        const sel = i === m.sel;
+        if (sel) { ctx.save(); ctx.globalAlpha = 0.22; rect(ctx, 24, y - 4, 272, 34, '#d97757'); ctx.restore(); }
+        Font.draw(ctx, a, 34, y, sel ? '#ffffff' : INK);
+        Font.draw(ctx, b, 288, y, '#f8d048', { align: 'right' });
+        Font.wrap(c, 250).forEach((l, j) => Font.draw(ctx, l, 34, y + 11 + j * 9, INK_SOFT));
+      });
+      Font.draw(ctx, 'ENTRÉE : DÉBLOQUER   < > : RÉGLER   ÉCHAP : FERMER', 160, 160, INK_SOFT, { align: 'center' });
+    }
+  }
+
   drawHUD(ctx) {
+    if (this.hub) return this.drawHubHUD(ctx);
     const p = this.player;
     // Coeurs
     const total = Math.ceil(p.maxHp / 2);
@@ -905,6 +1165,9 @@ class GameScene {
     const numCol = ['#ffffff', '#fff4e0', '#d8c8b8', '#b0a0a0'];
     drawSpr(ctx, 'coin', 4, 38);
     Font.draw(ctx, String(p.coins).padStart(2, '0'), 13, 38, numCol, { outline: '#1a1016' });
+    drawSpr(ctx, 'tear', 5, 141);
+    Font.draw(ctx, String(this.runTokens), 14, 142, '#f2a060', { outline: OUTLINE });
+    if (this.heat) Font.draw(ctx, 'S' + this.heat, 30, 142, '#ff6040', { outline: OUTLINE });
     drawSpr(ctx, 'key', 4, 49);
     Font.draw(ctx, String(p.keys).padStart(2, '0'), 13, 50, numCol, { outline: '#1a1016' });
 
@@ -1033,6 +1296,7 @@ class GameScene {
       const a = Math.min(1, (3.5 - this.victoryT) / 1.5);
       Font.draw(ctx, 'SAM ALTMAN EST VAINCU !', 160, 80, ['#fff4a0', '#f8d048', '#d89020'], { align: 'center', scale: 2, outline: '#1a1016', alpha: a });
     }
+    if (this.hubMenu) this.drawHubMenu(ctx);
     if (this.paused) this.drawPause(ctx);
   }
 
@@ -1060,7 +1324,7 @@ class GameScene {
     rect(ctx, 0, by + 90, W, 2, '#f05060');
     // Claude
     const cx = lerp(-70, 36, slide);
-    drawSpr(ctx, 'claudeXXL_right_0', cx + 3, by + 24);
+    drawSpr(ctx, 'claudeXXL_right_0', cx + 3, by + 18);
     Font.draw(ctx, 'CLAUDE', cx + 30, by + 8, ['#ffd8c4', '#f2a88a', '#d97757'], { align: 'center', outline: '#1a1016' });
     // VS
     if (t > 0.3) Font.draw(ctx, 'VS', 160, by + 30, ['#ffffff', '#fff4a0', '#f8d048', '#e8404a'], { align: 'center', scale: 3, outline: '#1a1016' });
@@ -1156,7 +1420,7 @@ class GameScene {
         Font.draw(ctx, b.name, 41, 133 + i * 10, INK_SOFT);
       });
     }
-    const opts = ['REPRENDRE', 'RECOMMENCER', 'MENU PRINCIPAL'];
+    const opts = ['REPRENDRE', this.hub ? 'RETOUR AU QG' : 'ABANDONNER', 'MENU PRINCIPAL'];
     opts.forEach((o, i) => {
       const sel = i === this.pauseSel;
       const x = 76 + i * 84;

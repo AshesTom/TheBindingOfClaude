@@ -29,11 +29,32 @@ npx http-server .   # puis http://localhost:8080
 | Pause         | Échap / P                  | Start              |
 | Couper le son | M                          |                    |
 
-## Contenu de la v0.3
+## Progression (façon Hadès)
+
+Entre deux runs, Claude revient au **QG** :
+
+- **Tokens de calcul** : gagnés à chaque run (ennemis, salles, boss, étages), même en cas de défaite.
+- **Entraînement** : améliorations permanentes (cœurs, dégâts, vitesse, budget de départ,
+  Artefact préchargé, Checkpoint qui ressuscite une fois par run).
+- **Modèles** : Claude **Haiku** (rapide, fragile), **Sonnet** (équilibré, commence avec un
+  objet) et **Opus** (tirs perçants, dégâts énormes) à débloquer.
+- **Chemins** : les *Archives oubliées* (étage 2 alternatif, avec la Reine des bugs) ;
+  après une victoire, la **Surchauffe** (ennemis plus résistants, plus de tokens).
+- Un mannequin d'entraînement pour tester ses dégâts.
+
+## Photo de Sam
+
+`node tools/pixelize-face.js photo.png [cx cy taille]` pixelise une photo de visage
+(palette réduite, masque ovale) et remplace automatiquement la tête dessinée de Sam.
+
+## Héberger le jeu en un seul fichier
+
+`python3 tools/bundle.py` produit `dist/the-binding-of-claude.html`.
+
+## Contenu de la v0.4
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro
-- **Sélection du personnage** : Claude (les autres emplacements sont verrouillés)
 - **3 étages générés procéduralement** (grille de salles façon Isaac) :
   1. *Le Dataset* : boss **Le Grand Bug**
   2. *La Ferme de Serveurs* : boss **L'Hallucinateur**
