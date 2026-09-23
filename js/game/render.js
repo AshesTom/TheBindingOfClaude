@@ -6,6 +6,110 @@ const INK_RED = '#ff7060';
 const INK_SOFT = '#a89098';
 
 // Salle complète peinte à 2x la résolution logique.
+// Chaque étage a son propre sol et ses propres murs (cave d'Isaac x enfers d'Hadès).
+function floorColor(theme, X, Y, T, seed, fA, fB, fDot, black) {
+  const n = hash2(X, Y, seed);
+  const blot = hash2(X >> 2, Y >> 2, seed + 3);
+  let col;
+  if (theme.id === 1) {
+    // Sous-sol : grandes dalles irrégulières
+    const rh = 22;
+    const row = Math.floor(Y / rh);
+    const len = 30 + Math.floor(hash2(row, 7, seed) * 26);
+    const off = Math.floor(hash2(row, 3, seed) * 40);
+    const slab = Math.floor((X + off) / len);
+    const lx = (X + off) % len;
+    const ly = Y % rh;
+    col = mixRgb(fA, fB, hash2(slab, row, seed));
+    if (blot > 0.78) col = mixRgb(col, fDot, 0.3);
+    if (n > 0.93) col = mixRgb(col, black, 0.2);
+    if (ly < 2 || lx < 2) col = mixRgb(col, black, 0.55);
+    else if (ly < 3 || lx < 3) col = mixRgb(col, fDot, 0.35);
+  } else if (theme.id === 2) {
+    // Catacombes : pierre grise, joints profonds
+    const lx = X % T;
+    const ly = Y % T;
+    col = mixRgb(fA, fB, hash2(Math.floor(X / T), Math.floor(Y / T), seed));
+    if (blot > 0.8) col = mixRgb(col, fDot, 0.4);
+    if (n > 0.95) col = mixRgb(col, black, 0.25);
+    if (lx < 2 || ly < 2) col = mixRgb(col, black, 0.6);
+    else if (lx < 3 || ly < 3) col = mixRgb(col, fDot, 0.5);
+    else if (lx > T - 3 || ly > T - 3) col = mixRgb(col, black, 0.25);
+  } else if (theme.id === 3) {
+    // Élysée : marbre veiné, joints dorés
+    const lx = X % T;
+    const ly = Y % T;
+    col = (Math.floor(X / T) + Math.floor(Y / T)) % 2 ? fA.slice() : fB.slice();
+    const vein = Math.sin(X * 0.08 + Math.sin(Y * 0.13 + X * 0.02) * 4 + seed + hash2(X >> 3, Y >> 3, seed) * 2);
+    if (vein > 0.985) col = mixRgb(col, [210, 230, 220], 0.2);
+    if (n > 0.97) col = mixRgb(col, fDot, 0.5);
+    if (lx < 1 || ly < 1) col = [200, 168, 96];
+    else if (lx < 2 || ly < 2) col = mixRgb(col, black, 0.3);
+  } else if (theme.id === 4) {
+    // Asphodèle : basalte et lave
+    const lx = X % T;
+    const ly = Y % T;
+    col = mixRgb(fA, fB, hash2(Math.floor(X / T), Math.floor(Y / T), seed));
+    if (blot > 0.82) col = mixRgb(col, fDot, 0.5);
+    // Magma qui suinte entre certaines dalles
+    const hot = hash2(Math.floor(X / T), Math.floor(Y / T), seed + 5) > 0.55;
+    if (lx < 2 || ly < 2) col = hot ? [255, 110, 30] : mixRgb(col, [60, 16, 8], 0.7);
+    else if (hot && (lx < 4 || ly < 4)) col = mixRgb(col, [200, 60, 10], 0.5);
+  } else {
+    // QG : marbre sombre en damier
+    const lx = X % T;
+    const ly = Y % T;
+    col = (Math.floor(X / T) + Math.floor(Y / T)) % 2 ? fA.slice() : fB.slice();
+    const vein = Math.sin(X * 0.05 + Math.sin(Y * 0.08) * 3);
+    if (vein > 0.95) col = mixRgb(col, fDot, 0.6);
+    if (lx < 1 || ly < 1) col = mixRgb(col, [200, 160, 96], 0.5);
+  }
+  return col;
+}
+
+function wallColor(theme, X, Y, T, WH, HH, inX, inY, seed, wD, wM, wL, black) {
+  const n = hash2(X, Y, seed);
+  let t;
+  let dark = 1;
+  if (!inY && Y < T) t = Y / (T - 1);
+  else if (!inY) { t = (HH - 1 - Y) / (T - 1); dark = 0.72; }
+  else t = 1;
+  if (!inX) {
+    const t2 = X < T ? X / (T - 1) : (WH - 1 - X) / (T - 1);
+    t = Math.min(t, t2);
+    if (inY) dark = 0.86;
+  }
+  const q = dq(Math.pow(t, 1.4), X, Y, 6);
+  let col = q < 0.5 ? mixRgb(wD, wM, q * 2) : mixRgb(wM, wL, (q - 0.5) * 2);
+  col = mixRgb(black, col, dark);
+  const along = inY ? Y : X;
+  if (theme.id === 1 || theme.id === 2 || theme.id === 4) {
+    // Gros blocs de pierre
+    const bw = theme.id === 2 ? 26 : 22;
+    const bh = theme.id === 2 ? 13 : 11;
+    const row = Math.floor(Y / bh);
+    const off = row % 2 ? Math.floor(bw / 2) : 0;
+    const bx = (X + off) % bw;
+    const by = Y % bh;
+    if (by === 0 || bx === 0) col = mixRgb(col, black, 0.6);
+    else if (by === 1 || bx === 1) col = mixRgb(col, wL, 0.22);
+    const stone = hash2(Math.floor((X + off) / bw), row, seed + 9);
+    col = mixRgb(col, stone > 0.5 ? wL : black, Math.abs(stone - 0.5) * 0.3);
+    if (theme.id === 4 && Math.sin(along * 0.21 + seed) > 0.97 && t > 0.3) col = [220, 80, 20];
+    if (theme.id === 2 && stone > 0.93 && by > 3 && by < bh - 2 && bx > 6 && bx < bw - 6) col = mixRgb(col, black, 0.7);
+  } else {
+    // Élysée et QG : colonnes cannelées + frise dorée
+    const c = along % 28;
+    if (c < 2) col = mixRgb(col, black, 0.5);
+    else if (c % 5 === 0) col = mixRgb(col, black, 0.25);
+    else if (c % 5 === 1) col = mixRgb(col, wL, 0.2);
+    if (t > 0.72 && t < 0.8) col = mixRgb(col, [200, 168, 96], 0.7);
+    if (theme.id === 5 && t < 0.25) col = mixRgb(col, [90, 20, 30], 0.5);
+  }
+  if (n > 0.94) col = mixRgb(col, black, 0.15);
+  return col;
+}
+
 function renderRoomBG(room, theme, opts = {}) {
   const WH = ROOM_PX_W * HD;
   const HH = ROOM_PX_H * HD;
@@ -25,124 +129,27 @@ function renderRoomBG(room, theme, opts = {}) {
 
   for (let Y = 0; Y < HH; Y++) {
     for (let X = 0; X < WH; X++) {
-      let col;
       const inX = X >= T && X < WH - T;
       const inY = Y >= T && Y < HH - T;
-      const n = hash2(X, Y, seed);
+      let col;
       if (inX && inY) {
-        const tx = Math.floor(X / T);
-        const ty = Math.floor(Y / T);
-        const lx = X % T;
-        const ly = Y % T;
-        col = (tx + ty) % 2 ? fB.slice() : fA.slice();
-        // Grain de la pierre en petites taches
-        const blot = hash2(X >> 2, Y >> 2, seed + 3);
-        if (blot > 0.8) col = mixRgb(col, fDot, 0.35);
-        else if (blot < 0.12) col = mixRgb(col, black, 0.12);
-        if (n > 0.95) col = mixRgb(col, fDot, 0.6);
-        if (theme.id === 1) {
-          if (lx < 2 || ly < 2) col = mixRgb(col, fDot, 0.55);
-          if (lx > T - 3 || ly > T - 3) col = mixRgb(col, black, 0.45);
-          const crack = hash2(tx, ty, seed + 1);
-          if (crack > 0.7 && Math.abs(lx - ly * 0.8 - crack * 10) < 1 && lx > 6 && lx < 26) col = mixRgb(col, black, 0.55);
-        } else if (theme.id === 2) {
-          if (lx < 2 || ly < 2) col = mixRgb(col, fDot, 0.8);
-          if (lx > T - 3 || ly > T - 3) col = mixRgb(col, black, 0.5);
-          if (ly > 5 && ly < 27 && lx > 5 && lx < 27 && ly % 4 === 0) col = mixRgb(col, black, 0.4);
-          if (ly > 5 && ly < 27 && lx > 5 && lx < 27 && ly % 4 === 1) col = mixRgb(col, fDot, 0.3);
-        } else if (theme.id >= 4) {
-          // Parquet
-          const ph = 10;
-          const row = Math.floor(Y / ph);
-          const len = 70 + Math.floor(hash2(row, 7, seed) * 50);
-          const off = Math.floor(hash2(row, 3, seed) * len);
-          const px2 = (X + off) % len;
-          col = mixRgb(fA, fB, hash2(Math.floor((X + off) / len), row, seed) * 0.8);
-          if (Y % ph === 0) col = mixRgb(col, black, 0.55);
-          else if (Y % ph === 1) col = mixRgb(col, fDot, 0.4);
-          if (px2 === 0) col = mixRgb(col, black, 0.45);
-          if (Math.sin(X * 0.3 + row * 1.7 + Math.sin(X * 0.05) * 3) > 0.92) col = mixRgb(col, black, 0.15);
-        } else {
-          const neb = Math.sin(X * 0.025 + Math.sin(Y * 0.035) * 2) * 0.5 + 0.5;
-          col = mixRgb(col, [96, 44, 128], dq(neb * 0.5, X, Y));
-          if (n > 0.992) col = [240, 210, 255];
-          if (lx < 1 || ly < 1) col = mixRgb(col, fDot, 0.4);
-        }
+        col = floorColor(theme, X, Y, T, seed, fA, fB, fDot, black);
         const dEdge = Math.min(X - T, Y - T, WH - T - 1 - X, HH - T - 1 - Y);
-        if (dEdge < 22) col = mixRgb(col, black, dq((22 - dEdge) / 22, X, Y) * 0.5);
+        if (dEdge < 24) col = mixRgb(col, black, dq((24 - dEdge) / 24, X, Y) * 0.55);
         const vx = (X - WH / 2) / (WH / 2);
         const vy = (Y - HH / 2) / (HH / 2);
         const v = clamp((vx * vx + vy * vy - 0.35) / 1.2, 0, 1);
         col = mixRgb(col, black, dq(v, X, Y) * 0.3);
       } else {
-        // Murs épais : sombre à l'extérieur, éclairé au bord intérieur
-        let t;
-        let dark = 1;
-        if (!inY && Y < T) t = Y / (T - 1);
-        else if (!inY) { t = (HH - 1 - Y) / (T - 1); dark = 0.72; }
-        else t = 1;
-        if (!inX) {
-          const t2 = X < T ? X / (T - 1) : (WH - 1 - X) / (T - 1);
-          t = Math.min(t, t2);
-          if (inY) dark = 0.86;
-        }
-        const q = dq(Math.pow(t, 1.4), X, Y, 6);
-        col = q < 0.5 ? mixRgb(wD, wM, q * 2) : mixRgb(wM, wL, (q - 0.5) * 2);
-        col = mixRgb(black, col, dark);
-        if (theme.id === 1) {
-          // Grosses pierres façon cave
-          const bw = 22;
-          const bh = 11;
-          const row = Math.floor(Y / bh);
-          const off = row % 2 ? 11 : 0;
-          const bx = (X + off) % bw;
-          const by = Y % bh;
-          if (by === 0 || bx === 0) col = mixRgb(col, black, 0.55);
-          else if (by === 1 || bx === 1) col = mixRgb(col, wL, 0.25);
-          const stone = hash2(Math.floor((X + off) / bw), row, seed + 9);
-          col = mixRgb(col, stone > 0.5 ? wL : black, Math.abs(stone - 0.5) * 0.25);
-        } else if (theme.id === 2) {
-          const along = inY ? Y : X;
-          const across = inY ? X : Y;
-          const a = along % T;
-          if (a < 2) col = mixRgb(col, black, 0.6);
-          else if (a < 3) col = mixRgb(col, wL, 0.35);
-          if (a % 6 === 0 && across % T > 6 && across % T < 24) col = mixRgb(col, black, 0.35);
-          if (a % 6 === 0 && across % T === 26 && hash2(along, across, seed) > 0.5) col = hash2(along, 1, seed) > 0.3 ? [106, 240, 106] : [240, 160, 64];
-        } else if (theme.id === 4) {
-          // Étagères de livres
-          const along = inY ? Y : X;
-          const across = inY ? X : Y;
-          const shelf = across % T;
-          const bw = 4 + Math.floor(hash2(Math.floor(along / 5), Math.floor(across / T), seed) * 3);
-          const book = Math.floor(along / bw);
-          const bc = [[140, 50, 40], [50, 80, 130], [60, 110, 60], [150, 110, 50], [100, 50, 110]][Math.floor(hash2(book, Math.floor(across / T), seed) * 5)];
-          if (shelf > 3 && shelf < T - 4) col = mixRgb(bc, black, (1 - t) * 0.6);
-          if (along % bw === 0) col = mixRgb(col, black, 0.5);
-          if (shelf <= 3 || shelf >= T - 4) col = mixRgb(wM, black, shelf <= 1 || shelf >= T - 2 ? 0.5 : 0.1);
-        } else if (theme.id === 5) {
-          // Boiseries du QG
-          const along = inY ? Y : X;
-          if (along % 24 < 2) col = mixRgb(col, black, 0.5);
-          else if (along % 24 < 3) col = mixRgb(col, wL, 0.3);
-          if (t > 0.55 && t < 0.62) col = mixRgb(col, [200, 140, 80], 0.5);
-        } else {
-          const f = ((X + Y) % 18 < 2) || ((X - Y + 999) % 26 < 2);
-          if (f) col = mixRgb(col, wL, 0.4);
-          if (n > 0.985) col = [240, 130, 200];
-        }
-        if (n > 0.93) col = mixRgb(col, black, 0.15);
+        col = wallColor(theme, X, Y, T, WH, HH, inX, inY, seed, wD, wM, wL, black);
       }
       const i = (Y * WH + X) * 4;
-      D[i] = col[0];
-      D[i + 1] = col[1];
-      D[i + 2] = col[2];
-      D[i + 3] = 255;
+      D[i] = col[0]; D[i + 1] = col[1]; D[i + 2] = col[2]; D[i + 3] = 255;
     }
   }
   x.putImageData(img, 0, 0);
 
-  // Bord intérieur des murs
+  // Bords
   R(x, T - 2, T - 2, WH - 2 * T + 4, 2, '#000');
   R(x, T - 2, HH - T, WH - 2 * T + 4, 2, '#000');
   R(x, T - 2, T - 2, 2, HH - 2 * T + 4, '#000');
@@ -153,28 +160,54 @@ function renderRoomBG(room, theme, opts = {}) {
   R(x, 0, 0, 2, HH, '#000');
   R(x, WH - 2, 0, 2, HH, '#000');
 
-  // Tapis du QG
+  // Tapis rouge du QG
   if (theme.id === 5) {
-    E(x, WH / 2, HH / 2 + 8, 120, 58, '#2a0e0e');
-    E(x, WH / 2, HH / 2 + 8, 116, 55, '#8a2a24');
-    E(x, WH / 2, HH / 2 + 8, 104, 48, '#c8703a');
-    E(x, WH / 2, HH / 2 + 8, 100, 45, '#7a2420');
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      E(x, WH / 2 + Math.cos(a) * 110, HH / 2 + 8 + Math.sin(a) * 51, 2, 2, '#f0c060');
-    }
-    E(x, WH / 2, HH / 2 + 8, 26, 12, '#c8703a');
+    R(x, 196, T, 88, HH - 2 * T, '#1a0608');
+    R(x, 200, T, 80, HH - 2 * T, '#c8a060');
+    R(x, 204, T, 72, HH - 2 * T, '#8a1a22');
+    for (let Y = T; Y < HH - T; Y += 12) R(x, 238, Y + 4, 4, 4, '#c8a060');
   }
 
-  // Rochers (avec ombre portée)
-  const rock = SPR['rock_' + theme.id];
+  // Décor au sol
+  const decor = theme.decor || [];
+  const free = [];
+  for (let ty = 1; ty < ROOM_H - 1; ty++) for (let tx = 1; tx < ROOM_W - 1; tx++) if (room.tiles[ty * ROOM_W + tx] === 0) free.push([tx, ty]);
+  shuffle(free);
+  const nDecor = decor.length ? randInt(4, 9) : 0;
+  for (let i = 0; i < nDecor && i < free.length; i++) {
+    const s = SPR['d_' + choice(decor)];
+    const [tx, ty] = free[i];
+    x.drawImage(s.img, tx * T + randInt(0, T - s.img.width), ty * T + randInt(0, T - s.img.height));
+  }
+
+  // Pics (tuile 5)
+  for (let ty = 0; ty < ROOM_H; ty++) {
+    for (let tx = 0; tx < ROOM_W; tx++) {
+      if (room.tiles[ty * ROOM_W + tx] === 5) x.drawImage(SPR.spikes.img, tx * T - 1, ty * T + 1);
+    }
+  }
+
+  // Obstacles (avec ombre portée)
   for (let ty = 0; ty < ROOM_H; ty++) {
     for (let tx = 0; tx < ROOM_W; tx++) {
       if (room.tiles[ty * ROOM_W + tx] !== 2) continue;
+      const rock = SPR[`rock_${theme.id}_${hash2(tx, ty, seed) > 0.5 ? 'a' : 'b'}`];
       x.globalAlpha = 0.45;
-      E(x, tx * T + 18, ty * T + 27, 13, 4, '#000');
+      E(x, tx * T + 18, ty * T + 28, 13, 4, '#000');
       x.globalAlpha = 1;
-      x.drawImage(rock.img, tx * T + Math.floor((T - rock.img.width) / 2), ty * T + T - rock.img.height + 1);
+      x.drawImage(rock.img, tx * T + Math.floor((T - rock.img.width) / 2), ty * T + T - rock.img.height + 2);
+    }
+  }
+
+  // Torches murales (la flamme est animée à l'exécution)
+  room.torches = [];
+  if (theme.torch) {
+    const spots = [[4, 0], [10, 0], [0, 2], [0, 6], [14, 2], [14, 6]];
+    for (const [tx, ty] of spots) {
+      const lx = tx === 0 ? 8 : tx === 14 ? ROOM_PX_W - 8 : tx * TILE + 8;
+      const ly = ty === 0 ? 9 : ty * TILE + 8;
+      x.drawImage(SPR.sconce.img, lx * HD - 10, ly * HD - 4);
+      room.torches.push({ x: lx, y: ly - 2, kind: theme.torch, ph: Math.random() * 10 });
     }
   }
 
@@ -182,7 +215,7 @@ function renderRoomBG(room, theme, opts = {}) {
   x.save();
   x.scale(HD, HD);
   if (opts.tutorial) {
-    const col = 'rgba(255,240,220,0.2)';
+    const col = 'rgba(255,240,220,0.22)';
     Font.draw(x, 'ZQSD / WASD : SE DÉPLACER', 120, 34, col, { align: 'center' });
     Font.draw(x, 'FLÈCHES : TIRER', 120, 48, col, { align: 'center' });
     Font.draw(x, 'ESPACE : DASH', 72, 96, col, { align: 'center' });
@@ -195,10 +228,25 @@ function renderRoomBG(room, theme, opts = {}) {
   return c;
 }
 
-// Fichier corrompu destructible (3 PV).
+const TORCH_COLORS = {
+  fire: ['#ff9a30', '#ffe080', '255,150,60'],
+  ghost: ['#40e080', '#c0ffd0', '80,240,140'],
+  spirit: ['#70c0ff', '#e0f4ff', '120,200,255'],
+  lava: ['#ff4a20', '#ffc060', '255,90,40'],
+};
+
+// Flamme animée d'une torche.
+function drawTorchFlame(ctx, tc, t) {
+  const [c1, c2] = TORCH_COLORS[tc.kind];
+  const f = Math.sin(t * 12 + tc.ph) * 0.8;
+  fillEllipseHD(ctx, tc.x, tc.y - 2 + f * 0.3, 2.5, 3.5 + f * 0.5, c1);
+  fillEllipseHD(ctx, tc.x, tc.y - 1.5, 1.2, 2, c2);
+}
+
+// Jarre destructible (2 PV).
 function drawDestructible(ctx, px, py, hp) {
-  drawShadow(ctx, px + 9, py + 14, 7, 2);
-  drawSpr(ctx, 'file_' + clamp(hp, 1, 3), px + 2, py);
+  drawShadow(ctx, px + 8, py + 14, 6, 2);
+  drawSpr(ctx, 'urn_' + clamp(hp, 1, 2), px + 3, py + 2);
 }
 
 // Porte HD pivotée selon le mur. state = 'open' | 'closed' | 'locked'

@@ -653,7 +653,7 @@ class GameOverScene {
     rect(ctx, 44, py + 26, 232, 1, INK_SOFT);
     Font.draw(ctx, 'CLAUDE A ÉTÉ CORROMPU PAR :', 44, py + 33, INK);
     drawKiller(ctx, k, 92, py + 70);
-    Font.draw(ctx, k ? (k.label || k.name) : 'UN MYSTÈRE', 92, py + 88, INK_RED, { align: 'center' });
+    Font.draw(ctx, k ? (k.label || k.name) : (this.g.stats.killerLabel || 'UN MYSTÈRE'), 92, py + 88, INK_RED, { align: 'center' });
     // Croix rouge façon tampon
     if (this.t > 0.6) {
       ctx.save();

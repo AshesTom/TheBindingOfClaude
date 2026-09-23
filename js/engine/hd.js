@@ -484,42 +484,155 @@ function paintGhost(name, frame, col) {
   });
 }
 
+// Obstacles par étage (deux variantes chacun), jarres, pics et décor au sol.
+function paintRocks() {
+  // Sous-sol : rochers
+  paint('rock_1_a', 28, 26, (x) => {
+    E(x, 14, 15, 13, 10, '#7a6656');
+    E(x, 10, 10, 8, 7, '#8a7462');
+  }, { detail: (x) => { LN(x, 15, 9, 18, 15, '#4e3e32'); LN(x, 18, 15, 16, 21, '#4e3e32'); E(x, 8, 7, 2, 1, '#c8b4a0'); } });
+  paint('rock_1_b', 28, 24, (x) => {
+    E(x, 9, 15, 8, 8, '#6e5a4c');
+    E(x, 20, 16, 7, 7, '#7e6a5a');
+    E(x, 14, 8, 7, 6, '#8a7462');
+  }, { detail: (x) => { E(x, 12, 6, 2, 1, '#c8b4a0'); R(x, 18, 16, 3, 1, '#4e3e32'); } });
+  // Catacombes : tas de crânes, pierre tombale
+  paint('rock_2_a', 28, 24, (x) => {
+    E(x, 14, 18, 13, 6, '#b8b0a0');
+    for (const [cx, cy] of [[7, 14], [14, 12], [21, 14], [10, 7], [18, 7], [14, 3]]) E(x, cx, cy, 4, 4, '#e0d8c8');
+  }, {
+    detail: (x) => {
+      for (const [cx, cy] of [[7, 14], [14, 12], [21, 14], [10, 7], [18, 7], [14, 3]]) {
+        R(x, cx - 2, cy, 2, 2, '#1a0e10');
+        R(x, cx + 1, cy, 2, 2, '#1a0e10');
+      }
+    },
+  });
+  paint('rock_2_b', 22, 28, (x) => {
+    R(x, 0, 24, 22, 4, '#4a4e54');
+    RR(x, 2, 0, 18, 26, 8, '#8a9098');
+  }, { detail: (x) => { R(x, 10, 6, 2, 10, '#4a4e54'); R(x, 6, 9, 10, 2, '#4a4e54'); E(x, 6, 3, 2, 1, '#c8ccd4'); } });
+  // Élysée : colonne brisée, buste
+  paint('rock_3_a', 22, 30, (x) => {
+    R(x, 0, 24, 22, 6, '#c8c0a8');
+    R(x, 3, 4, 16, 21, '#e0dcc8');
+    R(x, 1, 0, 20, 5, '#d0c8b0');
+  }, {
+    detail: (x) => {
+      for (const cx of [6, 10, 14]) R(x, cx, 6, 1, 18, '#b0a890');
+      R(x, 1, 5, 20, 1, '#c8a860');
+      LN(x, 1, 0, 8, 3, '#8a8470');
+      LN(x, 8, 3, 13, 0, '#8a8470');
+    },
+  });
+  paint('rock_3_b', 24, 22, (x) => {
+    R(x, 0, 16, 24, 6, '#c8c0a8');
+    E(x, 12, 9, 8, 9, '#e0dcc8');
+  }, { detail: (x) => { R(x, 8, 8, 2, 2, '#8a8470'); R(x, 14, 8, 2, 2, '#8a8470'); R(x, 10, 13, 4, 1, '#8a8470'); R(x, 0, 17, 24, 1, '#c8a860'); } });
+  // Asphodèle : basalte fissuré de lave, pic d'obsidienne
+  paint('rock_4_a', 28, 24, (x) => {
+    RR(x, 0, 4, 28, 20, 5, '#3e3434');
+    RR(x, 4, 0, 18, 12, 4, '#4a3e3c');
+  }, { detail: (x) => { LN(x, 6, 8, 12, 14, '#ff7a20', 2); LN(x, 12, 14, 20, 12, '#ffb040'); LN(x, 20, 12, 23, 19, '#ff7a20'); } });
+  paint('rock_4_b', 20, 28, (x) => {
+    for (let j = 0; j < 28; j++) R(x, 10 - Math.round(j * 0.35), j, Math.max(2, Math.round(j * 0.7)), 1, '#2a2230');
+  }, { detail: (x) => { R(x, 9, 6, 1, 12, '#6a5a80'); R(x, 4, 25, 12, 1, '#ff6a20'); } });
+  // QG : colonne de marbre
+  paint('rock_5_a', 22, 34, (x) => {
+    R(x, 0, 28, 22, 6, '#6a3a40');
+    R(x, 3, 5, 16, 24, '#8a4a50');
+    R(x, 0, 0, 22, 6, '#6a3a40');
+  }, {
+    detail: (x) => {
+      for (const cx of [6, 10, 14]) R(x, cx, 7, 1, 20, '#5a2a30');
+      R(x, 0, 5, 22, 1, '#c8a060');
+      R(x, 0, 28, 22, 1, '#c8a060');
+    },
+  });
+  SPR.rock_5_b = SPR.rock_5_a;
+  // Jarres (façon Hadès), 2 états
+  for (let hp = 1; hp <= 2; hp++) {
+    paint('urn_' + hp, 18, 22, (x) => {
+      E(x, 9, 13, 8, 8, '#b86a3a');
+      R(x, 5, 2, 8, 5, '#a85a30');
+      R(x, 3, 1, 12, 3, '#c87a44');
+    }, {
+      detail: (x) => {
+        R(x, 2, 12, 14, 2, '#3a2418');
+        for (let i = 0; i < 4; i++) R(x, 3 + i * 4, 15, 2, 2, '#f0c060');
+        if (hp === 1) { LN(x, 6, 7, 9, 13, '#2a1810'); LN(x, 9, 13, 7, 19, '#2a1810'); LN(x, 13, 9, 11, 15, '#2a1810'); }
+      },
+    });
+  }
+  // Pics au sol
+  paint('spikes', 30, 26, (x) => {
+    R(x, 0, 20, 30, 6, '#3a3238');
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 2; j++) {
+        const cx = 5 + i * 10 + j * 5 - 2;
+        const cy = 10 + j * 8;
+        for (let k = 0; k < 10; k++) R(x, cx - Math.floor(k / 3), cy - 8 + k, Math.max(1, Math.floor(k / 3) * 2 + 1), 1, '#b8b8c8');
+      }
+    }
+  }, { detail: (x) => { R(x, 0, 20, 30, 1, '#5a5058'); } });
+  // Décor au sol (non bloquant, sans contour épais)
+  const decal = (name, w, h, fn) => paint(name, w, h, fn, { outline: false, shade: false });
+  decal('d_pebbles', 16, 8, (x) => { E(x, 3, 5, 2, 1, '#6e5a4a'); E(x, 9, 3, 1, 1, '#7a6656'); E(x, 13, 6, 2, 1, '#5e4a3c'); });
+  decal('d_blood', 20, 12, (x) => { E(x, 10, 6, 8, 4, '#5a1414'); E(x, 4, 9, 2, 1, '#5a1414'); E(x, 17, 3, 2, 1, '#5a1414'); E(x, 9, 5, 5, 2, '#6e1a1a'); });
+  decal('d_bone', 16, 8, (x) => { R(x, 3, 3, 10, 2, '#d8d0c0'); E(x, 2, 2, 2, 1, '#d8d0c0'); E(x, 2, 5, 2, 1, '#d8d0c0'); E(x, 14, 2, 2, 1, '#d8d0c0'); E(x, 14, 5, 2, 1, '#d8d0c0'); });
+  decal('d_crack', 20, 12, (x) => { LN(x, 0, 6, 6, 4, '#0000003a'); LN(x, 6, 4, 11, 8, '#00000040'); LN(x, 11, 8, 19, 5, '#0000003a'); LN(x, 11, 8, 13, 12, '#00000030'); });
+  decal('d_puddle', 22, 10, (x) => { E(x, 11, 5, 10, 4, '#2a3a44'); E(x, 8, 4, 3, 1, '#4a6070'); });
+  decal('d_skull', 12, 10, (x) => { E(x, 6, 4, 5, 4, '#d8d0c0'); R(x, 4, 7, 5, 3, '#d8d0c0'); R(x, 3, 4, 2, 2, '#1a0e10'); R(x, 7, 4, 2, 2, '#1a0e10'); });
+  decal('d_candle', 8, 12, (x) => { R(x, 2, 4, 4, 8, '#e8e0c8'); R(x, 3, 3, 1, 1, '#2a2020'); });
+  decal('d_moss', 20, 10, (x) => { E(x, 10, 5, 9, 4, '#2e4a2a'); E(x, 6, 4, 3, 2, '#3e6034'); E(x, 14, 6, 2, 1, '#3e6034'); });
+  decal('d_petals', 18, 10, (x) => { for (const [a, b] of [[3, 3], [8, 6], [13, 2], [15, 7], [5, 8]]) { E(x, a, b, 1, 1, '#f0a0c0'); R(x, a, b, 1, 1, '#ffd0e0'); } });
+  decal('d_coinspill', 16, 8, (x) => { for (const [a, b] of [[3, 4], [7, 3], [11, 5], [6, 6]]) E(x, a, b, 2, 1, '#e0b030'); });
+  decal('d_ember', 18, 10, (x) => { LN(x, 1, 5, 7, 3, '#8a2a10'); LN(x, 7, 3, 12, 7, '#c04a10'); LN(x, 12, 7, 17, 4, '#8a2a10'); R(x, 7, 3, 1, 1, '#ffa040'); });
+  // Applique murale (torche)
+  paint('sconce', 8, 10, (x) => { R(x, 2, 3, 4, 7, '#4a3a30'); R(x, 0, 2, 8, 2, '#6a5040'); }, { shade: false });
+}
+
 // ---------------------------------------------------------------------------
-// Mobilier du QG
+// QG : mobilier et personnages
 
 function paintHubProps() {
-  paint('terminal', 30, 34, (x) => {
-    R(x, 3, 22, 24, 12, '#3a3a46');
-    RR(x, 0, 0, 30, 24, 3, '#4a4a58');
+  // Escalier de la descente
+  paint('stairs', 44, 30, (x) => {
+    RR(x, 0, 0, 44, 30, 4, '#3a2226');
   }, {
     detail: (x) => {
-      R(x, 3, 3, 24, 16, '#141c14');
-      for (let i = 0; i < 5; i++) R(x, 5, 5 + i * 3, 8 + ((i * 7) % 12), 1, i === 0 ? '#f8d048' : '#60e070');
-      R(x, 6, 25, 18, 3, '#20202a');
-      for (let i = 0; i < 6; i++) R(x, 7 + i * 3, 26, 2, 1, '#8a8a9a');
+      for (let i = 0; i < 5; i++) {
+        const inset = i * 3;
+        R(x, 4 + inset, 4 + i * 5, 36 - inset * 2, 5, tone('#6a4448', -i * 0.08));
+        R(x, 4 + inset, 4 + i * 5, 36 - inset * 2, 1, tone('#8a6468', -i * 0.08));
+      }
+      R(x, 17, 26, 10, 4, '#050206');
     },
   });
-  paint('modelpod', 30, 42, (x) => {
-    RR(x, 0, 32, 30, 10, 3, '#4a4a58');
-    RR(x, 3, 0, 24, 34, 10, '#9ad0e8');
+  // Miroir des modèles
+  paint('mirror', 26, 38, (x) => {
+    R(x, 4, 32, 18, 6, '#6a4a2a');
+    E(x, 13, 16, 12, 16, '#c8a060');
   }, {
     detail: (x) => {
-      R(x, 6, 5, 2, 20, '#e0f8ff');
-      R(x, 3, 34, 24, 2, '#f0a060');
-      for (let i = 0; i < 4; i++) R(x, 6 + i * 6, 38, 3, 2, i % 2 ? '#60e0ff' : '#f8d048');
+      E(x, 13, 16, 9, 13, '#3a4a6a');
+      E(x, 13, 16, 7, 11, '#4a6088');
+      LN(x, 8, 8, 12, 4, '#a8c0e0', 2);
+      R(x, 12, 0, 2, 3, '#e04060');
     },
   });
-  paint('pathmap', 34, 24, (x) => {
-    R(x, 4, 14, 3, 10, '#5a3a24');
-    R(x, 27, 14, 3, 10, '#5a3a24');
-    R(x, 0, 6, 34, 10, '#7a5030');
-    R(x, 3, 0, 28, 10, '#e8d8b0');
+  // Table de cartes
+  paint('maptable', 34, 22, (x) => {
+    R(x, 3, 12, 3, 10, '#4a2e1c');
+    R(x, 28, 12, 3, 10, '#4a2e1c');
+    R(x, 0, 6, 34, 8, '#6a4228');
+    R(x, 3, 0, 28, 9, '#e8d8b0');
   }, {
     detail: (x) => {
-      LN(x, 7, 7, 14, 3, '#a8281c', 1);
-      LN(x, 14, 3, 20, 7, '#a8281c', 1);
-      LN(x, 14, 3, 26, 2, '#3a70c0', 1);
-      R(x, 25, 1, 3, 3, '#e8404a');
+      LN(x, 6, 6, 13, 2, '#a8281c');
+      LN(x, 13, 2, 19, 6, '#a8281c');
+      LN(x, 13, 2, 26, 2, '#3a70c0');
+      E(x, 26, 2, 1, 1, '#e8404a');
     },
   });
   paint('dummy', 20, 30, (x) => {
@@ -527,29 +640,121 @@ function paintHubProps() {
     R(x, 3, 28, 14, 2, '#5a3a24');
     E(x, 10, 12, 8, 9, '#c8a878');
     R(x, 0, 11, 20, 3, '#b89868');
-  }, {
+  }, { detail: (x) => { E(x, 10, 12, 5, 5, '#e84848'); E(x, 10, 12, 3, 3, '#f0e0c0'); E(x, 10, 12, 1, 1, '#e84848'); } });
+  // Brasero (le feu est animé à l'exécution)
+  paint('brazier', 20, 20, (x) => {
+    R(x, 8, 10, 4, 8, '#4a3a30');
+    R(x, 3, 17, 14, 3, '#3a2a22');
+    E(x, 10, 6, 9, 5, '#8a6a40');
+  }, { detail: (x) => { E(x, 10, 4, 7, 2, '#2a1810'); R(x, 2, 7, 16, 1, '#c8a060'); } });
+  // Bassin (le Styx en miniature)
+  paint('pool', 50, 26, (x) => E(x, 25, 13, 25, 13, '#8a8078'), {
     detail: (x) => {
-      E(x, 10, 12, 5, 5, '#e84848');
-      E(x, 10, 12, 3, 3, '#f0e0c0');
-      E(x, 10, 12, 1, 1, '#e84848');
-      LN(x, 4, 6, 7, 9, '#8a6a48');
+      E(x, 25, 13, 21, 10, '#3a1a30');
+      E(x, 25, 13, 18, 8, '#5a2440');
     },
   });
-  paint('rock_4', 28, 24, (x) => {
-    R(x, 0, 16, 28, 8, '#6a3a24');
-    R(x, 2, 8, 24, 8, '#3a5a8a');
-    R(x, 5, 0, 18, 8, '#7a2a2a');
-  }, {
-    detail: (x) => {
-      R(x, 0, 18, 28, 1, '#e8d8b0');
-      R(x, 2, 10, 24, 1, '#e8d8b0');
-      R(x, 5, 2, 18, 1, '#e8d8b0');
-      R(x, 12, 3, 2, 4, '#f0c030');
-    },
-  });
-  paint('rock_5', 26, 26, (x) => RR(x, 0, 4, 26, 22, 3, '#6a4030'), {
-    detail: (x) => { R(x, 3, 8, 20, 2, '#8a5a40'); R(x, 3, 16, 20, 2, '#8a5a40'); },
-  });
+}
+
+// Personnages du QG (k = 1 en jeu, 2 pour le portrait des dialogues).
+function paintNPCs() {
+  for (const k of [1, 2]) {
+    const s = (v) => Math.round(v * k);
+    const t = (v) => Math.max(1, s(v));
+    const suf = k === 2 ? 'XL' : '';
+    // Le Passeur (marchand encapuchonné)
+    paint('npc_passeur' + suf, s(24), s(38), (x) => {
+      for (let j = 0; j < 22; j++) R(x, s(12 - 4 - j * 0.35), s(14 + j), s(8 + j * 0.7), t(1), '#3a2250');
+      E(x, s(12), s(11), s(9), s(10), '#4a2c66');
+      E(x, s(20), s(28), s(3), s(3), '#d8c8b0');
+    }, {
+      detail: (x) => {
+        E(x, s(12), s(12), s(6), s(6), '#140a1c');
+        E(x, s(9), s(12), t(1), t(1), '#ffd040');
+        E(x, s(15), s(12), t(1), t(1), '#ffd040');
+        E(x, s(20), s(30), s(2), s(2), '#f0c030');
+        R(x, s(6), s(22), s(12), t(1), '#c8a060');
+      },
+    });
+    // Le Vétéran (casque à plume)
+    paint('npc_veteran' + suf, s(24), s(38), (x) => {
+      RR(x, s(8), s(30), s(4), s(8), t(1), '#6a4a30');
+      RR(x, s(13), s(30), s(4), s(8), t(1), '#6a4a30');
+      RR(x, s(4), s(18), s(16), s(14), s(4), '#b88a3a');
+      RR(x, s(0), s(19), s(5), s(10), s(2), '#e8b894');
+      RR(x, s(19), s(19), s(5), s(10), s(2), '#e8b894');
+      E(x, s(12), s(11), s(9), s(9), '#e8b894');
+      E(x, s(12), s(6), s(10), s(6), '#c89a40');
+      for (let i = 0; i < 8; i++) E(x, s(12 + (i - 4) * 1.2), s(0 + Math.abs(i - 4) * 0.4), t(2), t(3), '#d03030');
+    }, {
+      detail: (x) => {
+        R(x, s(8), s(11), t(2), t(2), '#1a0e10');
+        R(x, s(14), s(11), t(2), t(2), '#1a0e10');
+        R(x, s(7), s(15), s(10), s(4), '#8a6a4a');
+        R(x, s(6), s(22), s(12), t(1), '#8a6020');
+        R(x, s(3), s(6), s(18), t(1), '#8a6020');
+      },
+    });
+    // La Conteuse (robe étoilée)
+    paint('npc_conteuse' + suf, s(24), s(40), (x) => {
+      for (let j = 0; j < 20; j++) R(x, s(12 - 5 - j * 0.3), s(19 + j), s(10 + j * 0.6), t(1), '#2a2a5a');
+      E(x, s(12), s(12), s(10), s(12), '#1a1024');
+      E(x, s(12), s(12), s(7), s(8), '#e8dcf0');
+    }, {
+      detail: (x) => {
+        R(x, s(9), s(12), t(2), t(1), '#3a2a50');
+        R(x, s(14), s(12), t(2), t(1), '#3a2a50');
+        R(x, s(11), s(16), t(2), t(1), '#b06a8a');
+        for (const [a, b] of [[8, 26], [15, 30], [11, 34], [17, 24], [6, 33]]) R(x, s(a), s(b), t(1), t(1), '#f8e8a0');
+        E(x, s(12), s(3), t(2), t(1), '#c8a0f0');
+      },
+    });
+    // Le Veilleur (endormi, flotte avec son oreiller)
+    paint('npc_veilleur' + suf, s(26), s(30), (x) => {
+      RR(x, s(0), s(20), s(26), s(8), s(3), '#e8e8f0');
+      RR(x, s(5), s(12), s(16), s(12), s(4), '#6a8ac8');
+      E(x, s(13), s(9), s(8), s(8), '#f0d0b0');
+      E(x, s(13), s(4), s(8), s(4), '#d8d8e8');
+    }, {
+      detail: (x) => {
+        R(x, s(9), s(10), s(3), t(1), '#3a2418');
+        R(x, s(15), s(10), s(3), t(1), '#3a2418');
+        E(x, s(13), s(14), t(1), t(1), '#b06a5a');
+      },
+    });
+    // Maître Hibou (cartographe à monocle)
+    paint('npc_hibou' + suf, s(22), s(26), (x) => {
+      E(x, s(11), s(15), s(10), s(11), '#8a6a48');
+      E(x, s(4), s(3), s(3), s(4), '#8a6a48');
+      E(x, s(18), s(3), s(3), s(4), '#8a6a48');
+      E(x, s(11), s(18), s(6), s(7), '#d8c098');
+    }, {
+      detail: (x) => {
+        E(x, s(7), s(10), s(3), s(3), '#f8f0d0');
+        E(x, s(15), s(10), s(3), s(3), '#f8f0d0');
+        E(x, s(7), s(10), t(1), t(1), '#1a0e10');
+        E(x, s(15), s(10), t(1), t(1), '#1a0e10');
+        E(x, s(15), s(10), s(4), s(4), '#c8a060');
+        E(x, s(15), s(10), s(3), s(3), '#f8f0d0');
+        E(x, s(15), s(10), t(1), t(1), '#1a0e10');
+        R(x, s(10), s(13), s(2), s(2), '#e0a030');
+      },
+    });
+    // Le chat
+    paint('npc_chat' + suf, s(20), s(16), (x) => {
+      E(x, s(10), s(11), s(8), s(5), '#2a2430');
+      E(x, s(5), s(6), s(5), s(5), '#2a2430');
+      R(x, s(1), s(0), s(3), s(3), '#2a2430');
+      R(x, s(6), s(0), s(3), s(3), '#2a2430');
+      R(x, s(17), s(4), s(2), s(8), '#2a2430');
+    }, {
+      detail: (x) => {
+        R(x, s(3), s(5), t(1), t(2), '#f0d040');
+        R(x, s(7), s(5), t(1), t(2), '#f0d040');
+        R(x, s(5), s(8), t(1), t(1), '#f090a0');
+      },
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -634,59 +839,6 @@ function paintPickups() {
   orb('eb_gold', '#f8c838');
   orb('eb_blue', '#50b0f8');
   orb('eb_clip', '#c8c8d8');
-}
-
-// Rochers par thème.
-function paintRocks() {
-  paint('rock_1', 28, 26, (x) => {
-    E(x, 14, 15, 13, 10, '#6e6272');
-    E(x, 10, 10, 8, 7, '#7e7282');
-  }, {
-    detail: (x) => {
-      LN(x, 15, 9, 18, 15, '#4a3e50');
-      LN(x, 18, 15, 16, 20, '#4a3e50');
-      E(x, 8, 7, 2, 1, '#c8bcd0');
-    },
-  });
-  paint('rock_2', 26, 26, (x) => RR(x, 0, 0, 26, 26, 3, '#3e4e66'), {
-    detail: (x) => {
-      R(x, 2, 2, 22, 2, '#7c96b8');
-      for (let i = 0; i < 4; i++) {
-        R(x, 4, 7 + i * 4, 16, 2, '#1a2230');
-        R(x, 21, 7 + i * 4, 2, 2, i === 2 ? '#f04040' : '#6af06a');
-      }
-    },
-  });
-  paint('rock_3', 26, 28, (x) => {
-    const shard = (cx, h, w, col) => {
-      for (let yy = 0; yy < h; yy++) {
-        const half = Math.max(1, Math.round((yy < h * 0.35 ? yy / (h * 0.35) : (h - yy) / (h * 0.65) * 0.8 + 0.2) * w));
-        R(x, cx - half, 28 - h + yy, half * 2, 1, col);
-      }
-    };
-    shard(7, 18, 5, '#7a3ab0');
-    shard(19, 20, 5, '#8a4ac0');
-    shard(13, 27, 7, '#9a5ad0');
-  }, {
-    detail: (x) => {
-      R(x, 12, 5, 2, 8, '#f0d0ff');
-      R(x, 18, 12, 1, 5, '#e0b0ff');
-    },
-  });
-  // Fichier corrompu destructible (3 états)
-  for (let hp = 1; hp <= 3; hp++) {
-    paint('file_' + hp, 22, 26, (x) => {
-      R(x, 0, 0, 16, 26, '#f0e8f0');
-      R(x, 16, 6, 6, 20, '#f0e8f0');
-      for (let i = 0; i < 6; i++) R(x, 16 + i, i, 1, 6 - i, '#c8c0d0');
-    }, {
-      detail: (x) => {
-        for (let i = 0; i < 6; i++) R(x, 3, 8 + i * 3, i % 2 ? 10 : 15, 1, '#9a92a8');
-        if (hp <= 2) { R(x, 0, 10, 22, 2, '#f070b8'); R(x, 4, 18, 18, 1, '#7fe8f0'); }
-        if (hp <= 1) { R(x, 0, 14, 12, 3, '#78d05a'); LN(x, 11, 0, 8, 26, '#1a0e10', 2); }
-      },
-    });
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -782,7 +934,7 @@ function doorCanvas(themeId, kind, state) {
   const s = (v) => Math.round(v * 4 / 3);
   const x = c.getContext('2d');
   const frames = {
-    normal: ['#7a6a60', '#8a7a8a', '#9a6ac0', '#8a6a44', '#a8704a'][themeId - 1],
+    normal: ['#8a7058', '#7a8088', '#c8a860', '#8a5a44', '#c8a060'][themeId - 1],
     boss: '#8a2434',
     treasure: '#d8a830',
     shop: '#4a9a50',
@@ -829,7 +981,7 @@ function doorCanvas(themeId, kind, state) {
     }
     x.drawImage(inner, 0, 0);
   } else {
-    const wood = ['#7a4a2c', '#4a5a74', '#5a3a80', '#6a3a22', '#7a4a2c'][themeId - 1];
+    const wood = ['#7a4a2c', '#4a4e56', '#6a5a3a', '#3a2a26', '#6a2a2a'][themeId - 1];
     E(x, s(24), s(16), s(11), s(6), wood);
     R(x, s(13), s(16), s(22), s(20), wood);
     for (let i = 15; i < 35; i += 4) R(x, s(i), s(12), 1, s(24), tone(wood, -0.18));
@@ -966,6 +1118,7 @@ function buildHD() {
   paintInjector('injector_a', 0);
   paintInjector('injector_b', 1);
   paintHubProps();
+  paintNPCs();
   paintPickups();
   paintRocks();
   paintBosses();

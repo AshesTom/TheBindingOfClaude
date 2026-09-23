@@ -31,7 +31,14 @@ npx http-server .   # puis http://localhost:8080
 
 ## Progression (façon Hadès)
 
-Entre deux runs, Claude revient au **QG** :
+Entre deux runs, Claude revient au **QG**, un grand hall façon maison d'Hadès
+(tapis rouge, colonnes, braseros, bassin, escalier de la descente) où l'on parle
+aux habitants avec **E** :
+
+- **Le Passeur** vend l'entraînement permanent, **le Miroir** change de modèle,
+  **Maître Hibou** ouvre les chemins ;
+- **la Conteuse** raconte l'histoire de Sam, **le Vétéran** donne des conseils,
+  **le Veilleur** commente ta dernière mort, et on peut caresser **le chat**.
 
 - **Tokens de calcul** : gagnés à chaque run (ennemis, salles, boss, étages), même en cas de défaite.
 - **Entraînement** : améliorations permanentes (cœurs, dégâts, vitesse, budget de départ,
@@ -51,7 +58,16 @@ Entre deux runs, Claude revient au **QG** :
 
 `python3 tools/bundle.py` produit `dist/the-binding-of-claude.html`.
 
-## Contenu de la v0.4
+## Étages (cave d'Isaac × enfers d'Hadès)
+
+1. **Le Sous-sol** : dalles de pierre, rochers, jarres, taches de sang.
+2. **Les Catacombes** (tas de crânes, pierres tombales, flammes vertes)
+   ou **Asphodèle** (basalte et magma, avec la Reine des bugs).
+3. **L'Élysée corrompu** : marbre, colonnes brisées, bustes — le repaire de Sam.
+
+Partout : jarres à casser, pics au sol, torches animées.
+
+## Contenu de la v0.5
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro

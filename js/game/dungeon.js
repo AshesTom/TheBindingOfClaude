@@ -1,51 +1,57 @@
 // Génération procédurale des étages (grille de salles à la Binding of Isaac).
 
+// Les étages mélangent la cave d'Isaac et les enfers d'Hadès.
 const FLOORS = [
   {
-    name: 'LE DATASET', short: 'DATASET', music: 'floor1', boss: 'bug',
+    name: 'LE SOUS-SOL', short: 'SOUS-SOL', music: 'floor1', boss: 'bug',
     pool: ['bug', 'bug', 'fly', 'fly', 'slime', 'spambot'],
     theme: {
-      id: 1, floor: '#3a2f3f', floor2: '#342a39', floorDot: '#4a3d50',
-      wall: '#5b4a60', wallDark: '#2a2130', wallLight: '#7d6882', frame: '#8a7560',
+      id: 1, floor: '#4a3628', floor2: '#433024', floorDot: '#5e4634',
+      wall: '#5a4030', wallDark: '#221610', wallLight: '#8a6448', frame: '#8a7058',
+      torch: 'fire', decor: ['pebbles', 'blood', 'bone', 'crack', 'puddle'],
     },
   },
   {
-    name: 'LA FERME DE SERVEURS', short: 'SERVEURS', music: 'floor2', boss: 'hallu',
+    name: 'LES CATACOMBES', short: 'CATACOMBES', music: 'floor2', boss: 'hallu',
     pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime'],
     theme: {
-      id: 2, floor: '#1f2a3a', floor2: '#1a2432', floorDot: '#2c3b50',
-      wall: '#2e3d52', wallDark: '#121a26', wallLight: '#4a6280', frame: '#6a7a90',
+      id: 2, floor: '#34383e', floor2: '#2e3238', floorDot: '#464c54',
+      wall: '#3c424a', wallDark: '#12151a', wallLight: '#6a7480', frame: '#7a8088',
+      torch: 'ghost', decor: ['skull', 'bone', 'candle', 'crack', 'moss'],
     },
   },
   {
-    name: 'LE CLOUD LATENT', short: 'CLOUD', music: 'floor3', boss: 'sam',
+    name: 'L\'ÉLYSÉE CORROMPU', short: 'ÉLYSÉE', music: 'floor3', boss: 'sam',
     pool: ['bug', 'fly', 'ghost', 'spambot', 'captcha', 'slime', 'ghost', 'injector'],
     theme: {
-      id: 3, floor: '#2a1838', floor2: '#24142f', floorDot: '#3e2452',
-      wall: '#4a2a60', wallDark: '#1a0c26', wallLight: '#7a4a9a', frame: '#c070d0',
+      id: 3, floor: '#2c4a44', floor2: '#27433e', floorDot: '#3e625a',
+      wall: '#3a5a52', wallDark: '#10201c', wallLight: '#7aa89a', frame: '#c8a860',
+      torch: 'spirit', decor: ['petals', 'petals', 'crack', 'coinspill'],
     },
   },
   {
     // Chemin alternatif de l'étage 2 (à débloquer au QG).
-    name: 'LES ARCHIVES OUBLIÉES', short: 'ARCHIVES', music: 'floor2', boss: 'queen',
+    name: 'ASPHODÈLE', short: 'ASPHODÈLE', music: 'floor2', boss: 'queen',
     pool: ['injector', 'injector', 'fly', 'slime', 'spambot', 'bug'],
     theme: {
-      id: 4, floor: '#3a2a1c', floor2: '#342518', floorDot: '#4e3a26',
-      wall: '#4a3222', wallDark: '#1e140c', wallLight: '#7a5a3a', frame: '#9a7a4a',
+      id: 4, floor: '#2a2224', floor2: '#251f21', floorDot: '#3a3032',
+      wall: '#3a2a26', wallDark: '#120a08', wallLight: '#6a4a40', frame: '#8a5a44',
+      torch: 'lava', decor: ['ember', 'ember', 'crack', 'bone'],
     },
   },
 ];
 
-// Le QG entre deux runs.
+// Le QG entre deux runs (façon maison d'Hadès).
 const HUB_THEME = {
-  id: 5, floor: '#3a2a26', floor2: '#34241f', floorDot: '#4a362c',
-  wall: '#5a3a30', wallDark: '#22140f', wallLight: '#8a5a44', frame: '#c07850',
+  id: 5, floor: '#2e1e22', floor2: '#281a1e', floorDot: '#40282e',
+  wall: '#4a2a30', wallDark: '#170a0e', wallLight: '#8a4a50', frame: '#c8a060',
+  torch: 'fire', decor: [],
 };
 
 // Ordre des étages : à l'étage 2, on peut prendre les Archives.
 const FLOOR_ROUTE = [[0], [1, 3], [2]];
 
-// Gabarits de salles (13 x 7 intérieur). # = rocher, c = fichier corrompu.
+// Gabarits de salles (13 x 7 intérieur). # = obstacle, c = jarre, s = pics.
 const ROOM_TEMPLATES = [
   [
     '.............',
@@ -147,6 +153,36 @@ const ROOM_TEMPLATES = [
     '.............',
   ],
 ];
+
+ROOM_TEMPLATES.push(
+  [
+    '.............',
+    '.............',
+    '...sss.sss...',
+    '...s.....s...',
+    '...sss.sss...',
+    '.............',
+    '.............',
+  ],
+  [
+    '.............',
+    '.c.........c.',
+    '.....sss.....',
+    '..#..s.s..#..',
+    '.....sss.....',
+    '.c.........c.',
+    '.............',
+  ],
+  [
+    '.............',
+    '..s.......s..',
+    '.............',
+    '....#...#....',
+    '.............',
+    '..s.......s..',
+    '.............',
+  ],
+);
 
 const DIRS = {
   up: { dx: 0, dy: -1, opp: 'down', tx: 7, ty: 0 },
@@ -301,7 +337,8 @@ function applyTemplate(r, tpl) {
       const ch = tpl[y][x];
       const i = (y + 1) * ROOM_W + (x + 1);
       if (ch === '#') r.tiles[i] = 2;
-      else if (ch === 'c') { r.tiles[i] = 3; r.hp[i] = 3; }
+      else if (ch === 'c') { r.tiles[i] = 3; r.hp[i] = 2; }
+      else if (ch === 's') r.tiles[i] = 5;
     }
   }
   // Dégage les abords des portes.

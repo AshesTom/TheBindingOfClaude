@@ -57,30 +57,30 @@ class GameScene {
     for (let y = 0; y < ROOM_H; y++) {
       for (let x = 0; x < ROOM_W; x++) if (!x || !y || x === ROOM_W - 1 || y === ROOM_H - 1) tiles[y * ROOM_W + x] = 1;
     }
+    // Colonnes de part et d'autre du tapis rouge
+    for (const [tx, ty] of [[5, 3], [9, 3], [5, 6], [9, 6]]) tiles[ty * ROOM_W + tx] = 2;
     const room = { gx: 4, gy: 4, type: 'hub', doors: {}, locks: {}, tiles, hp: {}, cleared: true, visited: true, seen: true, pickups: [], pedestals: [], setup: true };
     this.floorDef = { name: 'LE QG DE CLAUDE', music: 'title', theme: HUB_THEME, pool: [] };
     this.floor = { rooms: [room], start: room, get: () => null };
     this.floorNum = 0;
-    this.stations = [
-      { id: 'portal', x: 120, y: 30, label: 'DESCENDRE' },
-      { id: 'upgrades', x: 50, y: 46, spr: 'terminal', label: 'ENTRAÎNEMENT' },
-      { id: 'models', x: 190, y: 46, spr: 'modelpod', label: 'MODÈLES' },
-      { id: 'paths', x: 50, y: 112, spr: 'pathmap', label: 'CHEMINS' },
+    this.npcs = NPCS.map((n) => Object.assign({ ph: Math.random() * 6 }, n));
+    this.hubProps = [
+      { spr: 'stairs', x: 120, y: 28 },
+      { spr: 'brazier', x: 92, y: 36, fire: true },
+      { spr: 'brazier', x: 148, y: 36, fire: true },
+      { spr: 'pool', x: 60, y: 122, pool: true },
+      { spr: 'maptable', x: 34, y: 100 },
     ];
-    for (const st of this.stations) {
-      if (st.id === 'portal') continue;
-      const tx = Math.floor(st.x / TILE);
-      const ty = Math.floor(st.y / TILE);
-      tiles[ty * ROOM_W + tx] = 4;
-    }
     this.player.x = 120;
     this.player.y = 96;
     this.enterRoom(room, null);
-    this.enemies.push(new Dummy(this, 190, 112));
+    this.enemies.push(new Dummy(this, 212, 122));
     this.hubMenu = null;
+    this.dialog = null;
     this.fadeIn = 0.6;
     Sound.music('title');
   }
+
 
   // ------------------------------------------------------------------ Étages
   nextFloor(defIndex) {
@@ -423,10 +423,11 @@ class GameScene {
     if (p.hp <= 0) {
       p.hp = 0;
       this.dead = true;
-      this.tokensGained = Meta.endRun(this, false);
       let killer = src && src.owner ? src.owner : src;
       if (killer instanceof EBullet) killer = this.bossRef || null;
       this.stats.killer = killer instanceof Enemy ? killer : null;
+      if (src && src.label && !(src instanceof Enemy)) this.stats.killerLabel = src.label;
+      this.tokensGained = Meta.endRun(this, false);
       this.deathT = 2;
       this.stats.floor = this.floorNum;
       Sound.stopMusic();
@@ -621,6 +622,7 @@ class GameScene {
       }
       return;
     }
+    if (this.dialog) return this.updateDialog(dt);
     if (this.hubMenu) return this.updateHubMenu(dt);
     if (Input.pressed('pause') && !this.dead && !this.boonChoice && this.bossIntro <= 0) {
       this.paused = !this.paused;
@@ -747,6 +749,10 @@ class GameScene {
       }
     }
     if (this.hub) this.updateHub(dt);
+    // Pics
+    if (this.tileAt(Math.floor(p.x / TILE), Math.floor((p.y + 2) / TILE)) === 5 && p.dashT <= 0) {
+      this.hurtPlayer(1, { label: 'DES PICS' });
+    }
 
     // Sortie de salle
     if (p.y < 7 && this.isDoorOpen('up')) this.changeRoom('up');
@@ -835,13 +841,7 @@ class GameScene {
     const r = this.room;
     const th = this.floorDef.theme;
     ctx.drawImage(r.bg, 0, 0, ROOM_PX_W, ROOM_PX_H);
-    // LEDs clignotantes (ferme de serveurs)
-    if (th.id === 2) {
-      for (let i = 0; i < 6; i++) {
-        const k = Math.floor(this.t * 3 + i * 7.3) % 15;
-        rect(ctx, k * TILE + 12, 4 + (i % 3) * 3, 1, 1, i % 2 ? '#6af06a' : '#7fe8f0');
-      }
-    }
+    for (const tc of r.torches || []) drawTorchFlame(ctx, tc, this.t);
     for (const d of DIR_NAMES) {
       if (!r.doors[d]) continue;
       const nb = this.neighbor(r, d);
@@ -870,6 +870,7 @@ class GameScene {
     for (const e of this.enemies) list.push(e);
     for (const f of this.familiars) list.push(f);
     if (r.vendor) list.push({ y: r.vendor.y, draw: (c) => this.drawVendor(c, r.vendor) });
+    if (this.hub) for (const n of this.npcs) list.push({ y: n.y, draw: (c) => this.drawNPC(c, n) });
     list.sort((a, b) => a.y - b.y);
     for (const e of list) {
       if (e === this.player && this.descendT > 0) {
@@ -945,7 +946,12 @@ class GameScene {
     for (const e of this.enemies) if (e.boss) light(e.x, e.y, 50, 0.6);
     for (const pd of this.room.pedestals) if (!pd.taken) light(pd.x, pd.y - 6, 30, 0.8);
     for (const td of this.room.trapdoors || []) light(td.x, td.y, 26, 0.7);
-    if (this.hub) for (const st of this.stations) light(st.x, st.y, st.id === 'portal' ? 50 : 30, 0.7);
+    if (this.hub) {
+      for (const n of this.npcs) light(n.x, n.y - 8, 26, 0.6);
+      for (const pr of this.hubProps) if (pr.fire) light(pr.x, pr.y - 6, 50, 0.9);
+      light(120, 28, 30, 0.6);
+    }
+    for (const tc of this.room.torches || []) light(tc.x, tc.y + 4, 42, 0.75);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(lc, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -977,25 +983,85 @@ class GameScene {
   // ------------------------------------------------------------- QG : logique
   updateHub() {
     const p = this.player;
-    this.nearStation = null;
-    for (const st of this.stations) {
-      if (dist(p.x, p.y, st.x, st.y + (st.id === 'portal' ? 0 : 10)) < 24) this.nearStation = st;
-    }
-    const st = this.nearStation;
-    if (!st) return;
-    if (st.id === 'portal') {
-      if (dist(p.x, p.y, st.x, st.y) < 13 && !this.leaving) {
-        this.leaving = true;
-        Sound.play('stairs');
-        App.go(() => new GameScene({ model: Meta.data.model }));
-      }
+    // L'escalier lance une nouvelle run
+    if (dist(p.x, p.y, 120, 30) < 11 && !this.leaving) {
+      this.leaving = true;
+      Sound.play('stairs');
+      App.go(() => new GameScene({ model: Meta.data.model }));
       return;
     }
-    if (Input.pressed('special') || Input.pressedCode('Enter')) {
-      this.hubMenu = { type: st.id, sel: 0, t: 0 };
-      Sound.play('confirm');
+    this.nearNPC = null;
+    let bd = 24;
+    for (const n of this.npcs) {
+      const d = dist(p.x, p.y, n.x, n.y);
+      if (d < bd) { bd = d; this.nearNPC = n; }
+    }
+    const n = this.nearNPC;
+    if (n && (Input.pressed('special') || Input.pressedCode('Enter'))) {
+      if (n.object) {
+        this.hubMenu = { type: n.menu, sel: 0, t: 0 };
+        Sound.play('confirm');
+        return;
+      }
+      this.dialog = { npc: n, lines: npcLines(n.id), i: 0, chars: 0, t: 0 };
+      Sound.play('select');
+      if (n.id === 'chat') {
+        for (let k = 0; k < 3; k++) this.floatText(n.x + rand(-6, 6), n.y - 14 - k * 4, '<3', '#ff6080');
+      }
     }
   }
+
+  updateDialog(dt) {
+    const dl = this.dialog;
+    dl.t += dt;
+    const line = dl.lines[dl.i] || '';
+    const before = Math.floor(dl.chars);
+    dl.chars = Math.min(line.length, dl.chars + dt * 45);
+    if (Math.floor(dl.chars) !== before && Math.floor(dl.chars) % 3 === 0) Sound.play('blip');
+    this.updateParticles(dt);
+    const go = Input.pressed('special') || Input.pressedCode('Enter') || Input.pressedCode('Space') || (Input.gpNow[0] && !Input.gpPrev[0]);
+    if (Input.pressed('back')) { this.dialog = null; return; }
+    if (!go || dl.t < 0.15) return;
+    if (dl.chars < line.length) { dl.chars = line.length; return; }
+    dl.i++;
+    dl.chars = 0;
+    if (dl.i >= dl.lines.length) {
+      this.dialog = null;
+      if (dl.npc.menu) this.hubMenu = { type: dl.npc.menu, sel: 0, t: 0, npc: dl.npc };
+    }
+  }
+
+  drawDialog(ctx) {
+    const dl = this.dialog;
+    const n = dl.npc;
+    const y0 = 116;
+    drawPanel(ctx, 6, y0, 308, 58);
+    // Portrait
+    const port = SPR[n.spr + 'XL'] || SPR[n.spr];
+    const bob = Math.round(Math.sin(this.t * 3) * 1);
+    drawSpr(ctx, n.spr + 'XL', 14 + (46 - port.w) / 2, y0 + 52 - port.h + bob);
+    rect(ctx, 60, y0 + 8, 1, 42, '#5a3a48');
+    Font.draw(ctx, n.name, 68, y0 + 8, [tone(n.color || '#f2a060', 0.2), n.color || '#f2a060'], { outline: OUTLINE });
+    const line = (dl.lines[dl.i] || '').slice(0, Math.floor(dl.chars));
+    Font.wrap(line, 236).forEach((l, j) => Font.draw(ctx, l, 68, y0 + 22 + j * 10, INK));
+    if (dl.chars >= (dl.lines[dl.i] || '').length && Math.floor(this.t * 3) % 2) Font.draw(ctx, '>', 302, y0 + 46, INK_RED);
+  }
+
+  drawNPC(ctx, n) {
+    const s = SPR[n.spr];
+    const f = n.float ? Math.round(Math.sin(this.t * 2 + n.ph) * 2) - 3 : 0;
+    const breathe = n.object ? 0 : Math.round(Math.sin(this.t * 2.5 + n.ph) * 0.6);
+    drawShadow(ctx, n.x, n.y + 3, Math.min(10, s.w / 2 - 1), 2);
+    drawSpr(ctx, n.spr, n.x - s.w / 2, n.y + 4 - s.h + f + breathe);
+    if (n.id === 'veilleur') Font.draw(ctx, 'Z', n.x + 8 + Math.sin(this.t * 2) * 2, n.y - 30 - ((this.t * 6) % 6), '#a8b8e0', { outline: OUTLINE });
+    if (this.nearNPC === n && !this.dialog && !this.hubMenu) {
+      Font.draw(ctx, n.object ? 'E : REGARDER' : 'E : PARLER', n.x, n.y - s.h - 4, INK_RED, { align: 'center', outline: OUTLINE });
+      Font.draw(ctx, n.name, n.x, n.y - s.h + 5, INK, { align: 'center', outline: OUTLINE });
+    }
+  }
+
+
+
 
   hubMenuItems() {
     const m = this.hubMenu;
@@ -1046,23 +1112,30 @@ class GameScene {
 
   // ------------------------------------------------------------- QG : dessin
   drawHubProps(ctx) {
-    for (const st of this.stations) {
-      if (st.id === 'portal') {
-        const t = this.t;
-        for (let r = 16; r > 2; r -= 3) {
-          const w = r + Math.sin(t * 4 + r) * 1;
-          fillEllipseHD(ctx, st.x, st.y, w, w * 0.62, (r / 3) % 2 ? '#3a1060' : '#a050e0');
-        }
-        fillEllipseHD(ctx, st.x, st.y, 3, 2, '#ffffff');
-      } else {
-        const s = SPR[st.spr];
-        drawShadow(ctx, st.x, st.y + 8, s.w / 2, 2);
-        drawSpr(ctx, st.spr, st.x - s.w / 2, st.y + 9 - s.h);
+    for (const pr of this.hubProps) {
+      const s = SPR[pr.spr];
+      drawSpr(ctx, pr.spr, pr.x - s.w / 2, pr.y - s.h / 2);
+      if (pr.fire) {
+        const f = Math.sin(this.t * 10 + pr.x) * 1;
+        fillEllipseHD(ctx, pr.x, pr.y - 8 + f * 0.3, 5, 6 + f, '#ff7a20');
+        fillEllipseHD(ctx, pr.x, pr.y - 7, 3, 4, '#ffd060');
       }
-      const near = this.nearStation === st;
-      Font.draw(ctx, (near && st.id !== 'portal' ? 'E : ' : '') + st.label, st.x, st.y + (st.id === 'portal' ? 14 : 12), near ? INK_RED : INK_SOFT, { align: 'center', outline: OUTLINE });
+      if (pr.pool) {
+        for (let i = 0; i < 3; i++) {
+          const r = ((this.t * 6 + i * 7) % 20);
+          ctx.save();
+          ctx.globalAlpha = 0.5 * (1 - r / 20);
+          ctx.strokeStyle = '#c070a0';
+          ctx.beginPath();
+          ctx.ellipse(pr.x, pr.y, r * 0.9, r * 0.4, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
     }
+    Font.draw(ctx, 'LA DESCENTE', 120, 40, INK_SOFT, { align: 'center', outline: OUTLINE });
   }
+
 
   drawHubHUD(ctx) {
     const d = Meta.data;
@@ -1296,6 +1369,7 @@ class GameScene {
       const a = Math.min(1, (3.5 - this.victoryT) / 1.5);
       Font.draw(ctx, 'SAM ALTMAN EST VAINCU !', 160, 80, ['#fff4a0', '#f8d048', '#d89020'], { align: 'center', scale: 2, outline: '#1a1016', alpha: a });
     }
+    if (this.dialog) this.drawDialog(ctx);
     if (this.hubMenu) this.drawHubMenu(ctx);
     if (this.paused) this.drawPause(ctx);
   }

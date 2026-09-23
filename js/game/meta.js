@@ -101,6 +101,10 @@ const Meta = {
     d.tokens += gain;
     d.lastGain = gain;
     d.runs++;
+    const k = game.stats.killer;
+    d.lastKiller = k ? (k.label || k.name) : (game.stats.killerLabel || 'UN MYSTÈRE');
+    d.lastFloor = game.floorDef ? game.floorDef.name : '';
+    d.lastWon = !!won;
     d.bestFloor = Math.max(d.bestFloor, game.floorNum);
     if (won) {
       d.wins++;
