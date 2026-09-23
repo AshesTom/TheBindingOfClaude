@@ -5,7 +5,10 @@ const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 function resize() {
-  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const hint = document.getElementById('hint');
+  const aw = window.innerWidth - 32;
+  const ah = window.innerHeight - 32 - (hint ? hint.offsetHeight + 12 : 0);
+  const s = Math.max(0.5, Math.min(aw / W, ah / H));
   const scale = s >= 1 ? Math.floor(s) : s;
   canvas.style.width = Math.floor(W * scale) + 'px';
   canvas.style.height = Math.floor(H * scale) + 'px';
