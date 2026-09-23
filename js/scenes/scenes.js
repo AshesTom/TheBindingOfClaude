@@ -431,7 +431,10 @@ class TitleScene {
   constructor() {
     this.t = 0;
     this.sel = 0;
-    this.items = ['JOUER', 'COMMANDES', 'OPTIONS', 'REVOIR L\'INTRO'];
+    this.save = Store.get('run', null);
+    this.items = this.save
+      ? ['CONTINUER', 'LE QG', 'COMMANDES', 'OPTIONS', 'REVOIR L\'INTRO']
+      : ['JOUER', 'COMMANDES', 'OPTIONS', 'REVOIR L\'INTRO'];
     Sound.music('title');
   }
 
@@ -440,9 +443,13 @@ class TitleScene {
     menuNav(this, this.items.length);
     if (Input.pressed('confirm')) {
       Sound.play('confirm');
-      if (this.sel === 0) App.go(() => new GameScene({ hub: true }));
-      else if (this.sel === 1) App.go(() => new ControlsScene());
-      else if (this.sel === 2) App.go(() => new OptionsScene());
+      const label = this.items[this.sel];
+      if (label === 'CONTINUER') {
+        const save = this.save;
+        App.go(() => new GameScene({ model: save.model, restore: save }));
+      } else if (label === 'JOUER' || label === 'LE QG') App.go(() => new GameScene({ hub: true }));
+      else if (label === 'COMMANDES') App.go(() => new ControlsScene());
+      else if (label === 'OPTIONS') App.go(() => new OptionsScene());
       else App.go(() => new IntroScene());
     }
   }
@@ -465,7 +472,7 @@ class TitleScene {
     drawPaper(ctx, 172, 70, 136, 98, 4);
     rect(ctx, 236, 66, 8, 8, '#8a8290');
     rect(ctx, 238, 67, 4, 4, '#c8c0c8');
-    drawInkMenu(ctx, this.items, this.sel, 240, 84, this.t, 18);
+    drawInkMenu(ctx, this.items, this.sel, 240, this.items.length > 4 ? 80 : 84, this.t, this.items.length > 4 ? 16 : 18);
 
     Font.draw(ctx, 'V0.2', 316, 170, '#6a5040', { align: 'right' });
     const wins = Meta.data.wins;

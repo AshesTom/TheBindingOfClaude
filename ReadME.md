@@ -31,9 +31,11 @@ npx http-server .   # puis http://localhost:8080
 
 ## Progression (façon Hadès)
 
-Entre deux runs, Claude revient au **QG**, un grand hall façon maison d'Hadès
-(tapis rouge, colonnes, braseros, bassin, escalier de la descente) où l'on parle
-aux habitants avec **E** :
+Entre deux runs, Claude revient au **QG**, un domaine de cinq salles façon maison
+d'Hadès : **le Grand Hall** (tapis rouge, colonnes, braseros, escalier de la
+descente), **le Comptoir du Passeur**, **la Bibliothèque**, **la Cour
+d'entraînement** (mannequins, bassin) et **la Salle des trophées** (les boss
+vaincus sur leur socle). On parle aux habitants avec **E** :
 
 - **Le Passeur** vend l'entraînement permanent, **le Miroir** change de modèle,
   **Maître Hibou** ouvre les chemins ;
@@ -48,6 +50,11 @@ aux habitants avec **E** :
 - **Chemins** : les *Archives oubliées* (étage 2 alternatif, avec la Reine des bugs) ;
   après une victoire, la **Surchauffe** (ennemis plus résistants, plus de tokens).
 - Un mannequin d'entraînement pour tester ses dégâts.
+
+## Sauvegarde
+
+La run est sauvegardée automatiquement à chaque salle. **Pause → Sauver et quitter**
+puis **Continuer** au menu principal pour reprendre (tout est stocké dans le navigateur).
 
 ## Photo de Sam
 
@@ -67,7 +74,14 @@ aux habitants avec **E** :
 
 Partout : jarres à casser, pics au sol, torches animées.
 
-## Contenu de la v0.5
+## Animations
+
+Claude cligne des yeux, respire, rebondit en marchant, recule et plisse les yeux en
+tirant (avec un éclair), grimace quand il est touché et s'étire pendant le dash.
+Les ennemis s'écrasent quand on les frappe, se gonflent avant d'attaquer et laissent
+une tache au sol en mourant.
+
+## Contenu de la v0.6
 
 - **Intro narrative** (5 tableaux, texte animé, passable avec Échap)
 - **Menu principal** : jouer, commandes, options (volumes, plein écran), revoir l'intro

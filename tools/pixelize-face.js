@@ -49,20 +49,42 @@ try {
       x.imageSmoothingQuality = 'high';
       x.drawImage(img, X, Y, S, H, 0, 0, w, h);
       const d = x.getImageData(0, 0, w, h).data;
-      // Masque ovale (on garde le visage et les cheveux)
+      // Couleur du fond : moyenne des coins supérieurs de la photo
+      const full = document.createElement('canvas');
+      full.width = img.width;
+      full.height = img.height;
+      const fx = full.getContext('2d');
+      fx.drawImage(img, 0, 0);
+      const bgs = [[8, 8], [img.width - 9, 8], [8, img.height * 0.3], [img.width - 9, img.height * 0.3]].map(([a, b]) => fx.getImageData(a, b, 1, 1).data);
+      const isBg = (k) => bgs.some((b) => Math.abs(d[k] - b[0]) + Math.abs(d[k + 1] - b[1]) + 2.5 * Math.abs(d[k + 2] - b[2]) < 95);
+      // Remplissage depuis les bords : on retire le fond sans toucher au visage
+      const bg = new Uint8Array(w * h);
+      const q = [];
+      for (let i = 0; i < w; i++) q.push([i, 0]);
+      for (let j = 0; j < h; j++) { q.push([0, j]); q.push([w - 1, j]); }
+      while (q.length) {
+        const [i, j] = q.pop();
+        if (i < 0 || j < 0 || i >= w || j >= h || bg[j * w + i]) continue;
+        if (!isBg((j * w + i) * 4)) continue;
+        bg[j * w + i] = 1;
+        q.push([i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]);
+      }
+      // Masque : pas de fond, et on coupe sous le cou
       const px = [];
       for (let j = 0; j < h; j++) {
         for (let i = 0; i < w; i++) {
-          const dx = (i + 0.5 - w / 2) / (w / 2);
-          const dy = (j + 0.5 - h * 0.5) / (h * 0.52);
           const k = (j * w + i) * 4;
-          px.push(dx * dx + dy * dy <= 1 ? [d[k], d[k + 1], d[k + 2]] : null);
+          const dx = (i + 0.5 - w / 2) / (w / 2);
+          const keep = !bg[j * w + i] && j < h * 0.93 && Math.abs(dx) < (j > h * 0.78 ? 0.5 : 1.1);
+          px.push(keep ? [d[k], d[k + 1], d[k + 2]] : null);
         }
       }
-      // Quantification (k-moyennes, 10 couleurs) + contraste un peu poussé
+      // Quantification (k-moyennes, 12 couleurs) + contraste un peu poussé
       const pts = px.filter(Boolean).map((p) => p.map((v) => Math.min(255, Math.max(0, (v - 128) * 1.15 + 128))));
       let cent = [];
-      for (let i = 0; i < 10; i++) cent.push(pts[Math.floor((i + 0.5) * pts.length / 10)].slice());
+      const K = 12;
+      const sorted = pts.slice().sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+      for (let i = 0; i < K; i++) cent.push(sorted[Math.floor((i + 0.5) * sorted.length / K)].slice());
       for (let it = 0; it < 12; it++) {
         const acc = cent.map(() => [0, 0, 0, 0]);
         for (const p of pts) {

@@ -36,6 +36,7 @@ class GameScene {
     this.t = 0;
     this.flowTimer = 0;
     if (this.hub) this.setupHub();
+    else if (opts.restore) this.restoreRun(opts.restore);
     else {
       if (this.player.char.startItem) {
         const it = this.rollItem('treasure');
@@ -43,6 +44,72 @@ class GameScene {
       }
       this.nextFloor(0);
     }
+  }
+
+  // ------------------------------------------------------------ Sauvegarde
+  saveRun() {
+    if (this.hub || this.dead || this.victoryT > 0) return;
+    const p = this.player;
+    const data = {
+      v: 1,
+      model: this.model,
+      heat: this.heat,
+      floorNum: this.floorNum,
+      floorIdx: FLOORS.indexOf(this.floorDef),
+      runTokens: this.runTokens,
+      stats: { kills: this.stats.kills, time: this.stats.time, rooms: this.stats.rooms },
+      seen: [...this.seenItems],
+      player: {
+        hp: p.hp, maxHp: p.maxHp, coins: p.coins, keys: p.keys, items: p.items, boons: p.boons,
+        special: p.special, revives: p.revives,
+      },
+      keyGiven: !!this.floor.keyGiven,
+      room: [this.room.gx, this.room.gy],
+      rooms: this.floor.rooms.map((r) => ({
+        gx: r.gx, gy: r.gy, type: r.type, doors: r.doors, locks: r.locks, visited: r.visited, seen: r.seen,
+        cleared: r.cleared, tiles: r.tiles, hp: r.hp, enemySpec: r.enemySpec, setup: r.setup, vendor: r.vendor,
+        trapdoors: r.trapdoors,
+        pickups: r.pickups.map((pk) => ({ type: pk.type, x: pk.x, y: pk.y })),
+        pedestals: r.pedestals.map((pd) => ({ x: pd.x, y: pd.y, kind: pd.kind, item: pd.item, price: pd.price, taken: pd.taken })),
+      })),
+    };
+    Store.set('run', data);
+  }
+
+  restoreRun(d) {
+    const p = this.player;
+    this.heat = d.heat || 0;
+    this.floorNum = d.floorNum;
+    this.floorDef = FLOORS[d.floorIdx] || FLOORS[0];
+    this.runTokens = d.runTokens || 0;
+    Object.assign(this.stats, d.stats);
+    this.seenItems = new Set(d.seen || []);
+    Object.assign(p, d.player);
+    p.recompute();
+    for (const id of p.items) this.addFamiliar(id);
+    const grid = {};
+    const key = (x, y) => x + ',' + y;
+    const rooms = d.rooms.map((r) => {
+      const room = Object.assign({}, r);
+      room.pickups = r.pickups.map((pk) => new Pickup(this, pk.type, pk.x, pk.y));
+      room.pedestals = r.pedestals.map((pd) => Object.assign(new Pedestal(this, pd.x, pd.y, pd.kind, pd.item, pd.price), { taken: pd.taken }));
+      grid[key(r.gx, r.gy)] = room;
+      return room;
+    });
+    this.floor = { n: d.floorNum, rooms, grid, key, start: rooms.find((r) => r.type === 'start'), keyGiven: d.keyGiven, get: (x, y) => grid[key(x, y)] };
+    const cur = grid[key(d.room[0], d.room[1])] || this.floor.start;
+    p.x = 120;
+    p.y = 72;
+    this.enterRoom(cur, null);
+    // Évite d'apparaître dans un obstacle
+    if (this.boxSolid(p.x, p.y, p.hw, p.hh, 'player')) {
+      const spot = this.randomFreeSpot(120, 72, 10, 60);
+      p.x = spot.x;
+      p.y = spot.y;
+    }
+    this.floorCard = 2;
+    this.banner = { title: 'PARTIE RESTAURÉE', sub: this.floorDef.name, t: 2.5 };
+    Sound.music(cur.type === 'boss' && !cur.cleared ? 'boss' : this.floorDef.music);
   }
 
   addFamiliar(id) {
@@ -53,33 +120,54 @@ class GameScene {
 
   // ------------------------------------------------------------------- QG
   setupHub() {
-    const tiles = new Array(ROOM_W * ROOM_H).fill(0);
-    for (let y = 0; y < ROOM_H; y++) {
-      for (let x = 0; x < ROOM_W; x++) if (!x || !y || x === ROOM_W - 1 || y === ROOM_H - 1) tiles[y * ROOM_W + x] = 1;
-    }
-    // Colonnes de part et d'autre du tapis rouge
-    for (const [tx, ty] of [[5, 3], [9, 3], [5, 6], [9, 6]]) tiles[ty * ROOM_W + tx] = 2;
-    const room = { gx: 4, gy: 4, type: 'hub', doors: {}, locks: {}, tiles, hp: {}, cleared: true, visited: true, seen: true, pickups: [], pedestals: [], setup: true };
     this.floorDef = { name: 'LE QG DE CLAUDE', music: 'title', theme: HUB_THEME, pool: [] };
-    this.floor = { rooms: [room], start: room, get: () => null };
     this.floorNum = 0;
-    this.npcs = NPCS.map((n) => Object.assign({ ph: Math.random() * 6 }, n));
-    this.hubProps = [
-      { spr: 'stairs', x: 120, y: 28 },
-      { spr: 'brazier', x: 92, y: 36, fire: true },
-      { spr: 'brazier', x: 148, y: 36, fire: true },
-      { spr: 'pool', x: 60, y: 122, pool: true },
-      { spr: 'maptable', x: 34, y: 100 },
-    ];
+    const grid = {};
+    const key = (x, y) => x + ',' + y;
+    const SOLID = new Set(['counter', 'chest', 'bookcase', 'maptable', 'pool', 'brazier']);
+    const rooms = HUB_LAYOUT.map((L) => {
+      const tiles = new Array(ROOM_W * ROOM_H).fill(0);
+      for (let y = 0; y < ROOM_H; y++) {
+        for (let x = 0; x < ROOM_W; x++) if (!x || !y || x === ROOM_W - 1 || y === ROOM_H - 1) tiles[y * ROOM_W + x] = 1;
+      }
+      for (const [tx, ty] of L.pillars || []) tiles[ty * ROOM_W + tx] = 2;
+      // Le mobilier bloque le passage
+      const block = (px, py, w, h) => {
+        const ty = clamp(Math.floor((py + h / 2 - 3) / TILE), 1, ROOM_H - 2);
+        for (let tx = Math.floor((px - w / 2 + 2) / TILE); tx <= Math.floor((px + w / 2 - 2) / TILE); tx++) {
+          if (tx > 0 && tx < ROOM_W - 1) tiles[ty * ROOM_W + tx] = 4;
+        }
+      };
+      for (const pr of L.props) if (SOLID.has(pr.spr)) block(pr.x, pr.y, SPR[pr.spr].w, SPR[pr.spr].h);
+      if (L.trophies) for (const tr of TROPHIES) block(tr.x, tr.y + 6, 26, 14);
+      const room = {
+        gx: L.gx, gy: L.gy, type: 'hub', name: L.name, layout: L, theme: L.theme === 'court' ? COURT_THEME : HUB_THEME,
+        doors: {}, locks: {}, tiles, hp: {}, cleared: true, visited: false, seen: false, pickups: [], pedestals: [], setup: true,
+      };
+      grid[key(L.gx, L.gy)] = room;
+      return room;
+    });
+    for (const r of rooms) {
+      for (const d of DIR_NAMES) r.doors[d] = !!grid[key(r.gx + DIRS[d].dx, r.gy + DIRS[d].dy)];
+    }
+    this.floor = { rooms, grid, key, start: rooms[0], get: (x, y) => grid[key(x, y)] };
     this.player.x = 120;
     this.player.y = 96;
-    this.enterRoom(room, null);
-    this.enemies.push(new Dummy(this, 212, 122));
     this.hubMenu = null;
     this.dialog = null;
+    this.enterRoom(rooms[0], null);
     this.fadeIn = 0.6;
     Sound.music('title');
   }
+
+  onHubRoom(room) {
+    const L = room.layout;
+    this.npcs = L.npcs.map(([id, x, y]) => Object.assign({ id, x, y, ph: Math.random() * 6 }, NPC_DEFS[id]));
+    this.hubProps = L.props;
+    for (const [x, y] of L.dummies || []) this.enemies.push(new Dummy(this, x, y));
+    this.banner = { title: L.name, sub: L.stairs ? 'L\'ESCALIER MÈNE AUX PROFONDEURS' : '', t: 2 };
+  }
+
 
 
   // ------------------------------------------------------------------ Étages
@@ -128,7 +216,8 @@ class GameScene {
       const opts = {};
       if (room.type === 'start' && this.floorNum === 1 && Meta.data.runs < 2) opts.tutorial = true;
       else if (room.type === 'start') opts.label = this.floorDef.name;
-      room.bg = renderRoomBG(room, this.floorDef.theme, opts);
+      if (room.layout && room.layout.carpet) opts.carpet = true;
+      room.bg = renderRoomBG(room, room.theme || this.floorDef.theme, opts);
     }
     this.setupRoom(room);
 
@@ -150,6 +239,8 @@ class GameScene {
     }
     this.computeFlow();
     this.fadeIn = Math.max(this.fadeIn, 0.18);
+    if (this.hub) this.onHubRoom(room);
+    this.saveRun();
   }
 
   setupRoom(room) {
@@ -373,6 +464,7 @@ class GameScene {
     this.runTokens += e.boss ? 20 * this.floorNum : 1;
     const col = e instanceof Ghost ? '#a86ae8' : e instanceof Fly ? '#e8404a' : e instanceof Slime ? '#78d05a' : '#c8c0c8';
     this.burst(e.x, e.y - 4, e.boss ? 40 : 12, col, e.boss ? 120 : 70, 0.5);
+    this.splatAt(e.x, e.y + 2, e.boss ? 3 : 1, e.variant === 'slime2' ? '#2a7a9a' : e.splat || '#3a6a28');
     Sound.play('kill');
     if (e.boss) return this.onBossDefeated(e);
     if (p.stats.vamp && Math.random() < p.stats.vamp && p.hp < p.maxHp) {
@@ -405,6 +497,7 @@ class GameScene {
     }
     p.hp -= n;
     p.inv = 1.0;
+    p.hurtAnim = 0.5;
     p.dashIframe = false;
     this.shake = 5;
     this.freeze = 0.07;
@@ -428,6 +521,7 @@ class GameScene {
       this.stats.killer = killer instanceof Enemy ? killer : null;
       if (src && src.label && !(src instanceof Enemy)) this.stats.killerLabel = src.label;
       this.tokensGained = Meta.endRun(this, false);
+      Store.set('run', null);
       this.deathT = 2;
       this.stats.floor = this.floorNum;
       Sound.stopMusic();
@@ -448,6 +542,26 @@ class GameScene {
       if (Math.random() < 0.3) r.pickups.push(new Pickup(this, 'coin', tx * TILE + 8, ty * TILE + 8, rand(-20, 20), rand(-20, 20)));
       this.computeFlow();
     }
+  }
+
+  // Tache peinte directement sur le sol de la salle (elle reste).
+  splatAt(x, y, size, color) {
+    const bg = this.room.bg;
+    if (!bg) return;
+    const c = bg.getContext('2d');
+    c.save();
+    c.globalAlpha = 0.7;
+    const cx = Math.round(x * HD);
+    const cy = Math.round(y * HD);
+    E(c, cx, cy, 9 * size, 5 * size, color);
+    for (let i = 0; i < 6 * size; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = rand(8, 16) * size;
+      E(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.6, rand(1, 3) * size, rand(1, 2) * size, color);
+    }
+    c.globalAlpha = 0.35;
+    E(c, cx - 3 * size, cy - 2 * size, 4 * size, 2 * size, '#ffffff');
+    c.restore();
   }
 
   clearEnemyBullets() {
@@ -538,6 +652,7 @@ class GameScene {
     r.cleared = true;
     this.stats.rooms++;
     this.runTokens += 2;
+    setTimeout(() => this.saveRun(), 0);
     Sound.play('doorOpen');
     if (r.type === 'normal') {
       p.special = Math.min(100, p.special + 8 * p.stats.specialRate);
@@ -570,6 +685,9 @@ class GameScene {
     this.room.cleared = true;
     this.stats.rooms++;
     this.bossRef = null;
+    Meta.data.bosses = Meta.data.bosses || {};
+    Meta.data.bosses[this.floorDef.boss] = true;
+    Meta.save();
     if (this.floorNum >= FLOOR_ROUTE.length) {
       this.victoryT = 3.5;
       Sound.stopMusic();
@@ -618,6 +736,7 @@ class GameScene {
       if (this.victoryT <= 0) {
         const game = this;
         this.tokensGained = Meta.endRun(this, true);
+        Store.set('run', null);
         App.go(() => new VictoryScene(game));
       }
       return;
@@ -765,7 +884,7 @@ class GameScene {
     for (const pt of this.particles) {
       pt.life -= dt;
       if (pt.type === 'text') pt.y += pt.vy * dt;
-      else if (pt.type !== 'ring') {
+      else if (pt.type !== 'ring' && pt.type !== 'flash') {
         pt.x += pt.vx * dt;
         pt.y += pt.vy * dt;
         pt.vx *= Math.pow(0.05, dt);
@@ -784,10 +903,11 @@ class GameScene {
       Sound.play('confirm');
       if (this.pauseSel === 0) this.paused = false;
       else if (this.pauseSel === 1) {
-        if (!this.hub) Meta.endRun(this, false);
+        if (!this.hub) { Meta.endRun(this, false); Store.set('run', null); }
         App.go(() => new GameScene({ hub: true }));
       } else {
-        if (!this.hub) Meta.endRun(this, false);
+        // Sauvegarder et quitter : la run reprendra depuis cette salle.
+        this.saveRun();
         App.go(() => new TitleScene());
       }
     }
@@ -839,7 +959,7 @@ class GameScene {
 
   drawWorld(ctx) {
     const r = this.room;
-    const th = this.floorDef.theme;
+    const th = r.theme || this.floorDef.theme;
     ctx.drawImage(r.bg, 0, 0, ROOM_PX_W, ROOM_PX_H);
     for (const tc of r.torches || []) drawTorchFlame(ctx, tc, this.t);
     for (const d of DIR_NAMES) {
@@ -897,6 +1017,12 @@ class GameScene {
       const a = Math.max(0, pt.life / pt.max);
       if (pt.type === 'text') {
         Font.draw(ctx, pt.text, pt.x, pt.y, pt.c, { align: 'center', outline: '#1a1016', alpha: Math.min(1, a * 2) });
+      } else if (pt.type === 'flash') {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        fillEllipseHD(ctx, pt.x, pt.y, 4 * a + 1, 4 * a + 1, '#ffb070');
+        fillEllipseHD(ctx, pt.x, pt.y, 2 * a + 0.5, 2 * a + 0.5, '#ffffff');
+        ctx.restore();
       } else if (pt.type === 'ring') {
         const rr = lerp(pt.r1, pt.r0, a);
         ctx.save();
@@ -984,7 +1110,7 @@ class GameScene {
   updateHub() {
     const p = this.player;
     // L'escalier lance une nouvelle run
-    if (dist(p.x, p.y, 120, 30) < 11 && !this.leaving) {
+    if (this.room.layout.stairs && dist(p.x, p.y, 120, 30) < 11 && !this.leaving) {
       this.leaving = true;
       Sound.play('stairs');
       App.go(() => new GameScene({ model: Meta.data.model }));
@@ -1133,7 +1259,19 @@ class GameScene {
         }
       }
     }
-    Font.draw(ctx, 'LA DESCENTE', 120, 40, INK_SOFT, { align: 'center', outline: OUTLINE });
+    if (this.room.layout.stairs) Font.draw(ctx, 'LA DESCENTE', 120, 40, INK_SOFT, { align: 'center', outline: OUTLINE });
+    if (this.room.layout.trophies) {
+      const beaten = Meta.data.bosses || {};
+      for (const tr of TROPHIES) {
+        drawSpr(ctx, 'plinth', tr.x - 13, tr.y + 2);
+        const got = beaten[tr.boss];
+        const s = SPR[tr.spr];
+        drawSprSquash(ctx, tr.spr, tr.x, tr.y + 3, 22 / s.w, 22 / s.w, got ? {} : { tint: '#0e080a' });
+        Font.draw(ctx, got ? tr.name : '???', tr.x, tr.y + 18, got ? '#f0c060' : INK_SOFT, { align: 'center', outline: OUTLINE });
+      }
+      const d = Meta.data;
+      Font.draw(ctx, 'RUNS ' + d.runs + '   VICTOIRES ' + d.wins + '   RECORD ÉTAGE ' + d.bestFloor, 120, 124, INK, { align: 'center', outline: OUTLINE });
+    }
   }
 
 
@@ -1154,6 +1292,7 @@ class GameScene {
       Font.draw(ctx, '+' + d.lastGain + ' TOKENS', 20, 40, ['#fff4a0', '#f8d048'], { outline: OUTLINE, alpha: Math.min(1, 5 - this.t) });
     }
     if (d.heat) Font.draw(ctx, 'SURCHAUFFE ' + d.heat, 20, 160, '#ff6040', { outline: OUTLINE });
+    this.drawMinimap(ctx, 290, 42, true);
   }
 
   drawHubMenu(ctx) {
@@ -1315,11 +1454,33 @@ class GameScene {
     }
   }
 
-  drawMinimap(ctx, x0, y0) {
+  drawMinimap(ctx, x0, y0, compact = false) {
     const cw = 6;
     const ch = 3;
-    const mw = MAP_W * (cw + 1) + 3;
-    const mh = MAP_H * (ch + 1) + 2;
+    let mw = MAP_W * (cw + 1) + 3;
+    let mh = MAP_H * (ch + 1) + 2;
+    if (compact) {
+      // Carte resserrée autour des salles connues (QG)
+      const gxs = this.floor.rooms.map((r) => r.gx);
+      const gys = this.floor.rooms.map((r) => r.gy);
+      const minX = Math.min(...gxs);
+      const minY = Math.min(...gys);
+      x0 -= minX * (cw + 1);
+      y0 -= minY * (ch + 1);
+      mw = (Math.max(...gxs) - minX + 1) * (cw + 1) + 3;
+      mh = (Math.max(...gys) - minY + 1) * (ch + 1) + 2;
+      x0 += 0;
+      ctx.save();
+      ctx.globalAlpha = 0.65;
+      rect(ctx, x0 + minX * (cw + 1) - 2, y0 + minY * (ch + 1) - 1, mw, mh, '#120a10');
+      ctx.restore();
+      for (const r of this.floor.rooms) {
+        const x = x0 + r.gx * (cw + 1);
+        const y = y0 + r.gy * (ch + 1);
+        rect(ctx, x, y, cw, ch, r === this.room ? '#ffffff' : r.visited ? '#a89a90' : '#4e3e44');
+      }
+      return;
+    }
     ctx.save();
     ctx.globalAlpha = 0.65;
     rect(ctx, x0 - 2, y0 - 1, mw, mh, '#120a10');
@@ -1494,7 +1655,7 @@ class GameScene {
         Font.draw(ctx, b.name, 41, 133 + i * 10, INK_SOFT);
       });
     }
-    const opts = ['REPRENDRE', this.hub ? 'RETOUR AU QG' : 'ABANDONNER', 'MENU PRINCIPAL'];
+    const opts = ['REPRENDRE', this.hub ? 'RETOUR AU QG' : 'ABANDONNER', this.hub ? 'MENU PRINCIPAL' : 'SAUVER ET QUITTER'];
     opts.forEach((o, i) => {
       const sel = i === this.pauseSel;
       const x = 76 + i * 84;

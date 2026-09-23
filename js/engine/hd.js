@@ -174,7 +174,10 @@ const CLAUDE_VARIANTS = {
   opus: { body: '#d0603c', arm: '#c05434', leg: '#963e26' },
 };
 
-function paintClaude(name, k, dir, frame, blink, variant = 'sonnet') {
+function paintClaude(name, k, dir, frame, face, variant = 'sonnet') {
+  if (face === true) face = 'blink';
+  if (!face) face = 'normal';
+  const blink = face === 'blink';
   const s = (v) => Math.round(v * k);
   const V = CLAUDE_VARIANTS[variant];
   const oy = 6;
@@ -215,14 +218,26 @@ function paintClaude(name, k, dir, frame, blink, variant = 'sonnet') {
       }
       if (dir === 'up') return;
       for (const cx of eyes) {
-        if (blink) {
+        if (face === 'hurt') {
+          const sg = cx === eyes[0] ? 1 : -1;
+          LN(x, s(cx - 2 * sg), s(oy + 8), s(cx + 2 * sg), s(oy + 11), '#1a0e10', Math.max(1, s(2)));
+          LN(x, s(cx + 2 * sg), s(oy + 11), s(cx - 2 * sg), s(oy + 14), '#1a0e10', Math.max(1, s(2)));
+        } else if (blink) {
           RR(x, s(cx - 2), s(oy + 12), s(5), s(2), s(1), '#1a0e10');
         } else {
           RR(x, s(cx - 2), s(oy + 6), s(5), s(10), s(2), '#1a0e10');
           R(x, s(cx - 1), s(oy + 7), s(2), s(3), '#ffffff');
           R(x, s(cx + 1), s(oy + 13), Math.max(1, s(1)), Math.max(1, s(1)), '#ffffff');
+          if (face === 'shoot') {
+            // Regard concentré : paupière qui tombe en biais
+            R(x, s(cx - 3), s(oy + 5), s(7), s(4), V.body);
+            LN(x, s(cx - 3), s(oy + 8), s(cx + 3), s(oy + 7), '#1a0e10', Math.max(1, s(1)));
+          }
         }
       }
+      const mx = (eyes[0] + eyes[1]) / 2;
+      if (face === 'shoot') E(x, s(mx), s(oy + 17), s(2), s(2), '#5a1a14');
+      if (face === 'hurt') { E(x, s(mx), s(oy + 18), s(3), s(2), '#5a1a14'); R(x, s(mx - 2), s(oy + 17), s(4), Math.max(1, s(1)), '#ffffff'); }
       E(x, s(eyes[0] - 5), s(oy + 17), s(2), s(1), '#f5907c');
       E(x, s(eyes[1] + 5), s(oy + 17), s(2), s(1), '#f5907c');
     },
@@ -234,37 +249,42 @@ function paintClaude(name, k, dir, frame, blink, variant = 'sonnet') {
 
 function paintSam(name, k, angry) {
   const s = (v) => Math.round(v * k);
+  const t = (v) => Math.max(1, s(v));
+  const suit = '#26386a';
   paint(name, s(26), s(40), (x) => {
-    RR(x, s(8), s(31), s(4), s(8), s(1), '#3a5a8a');
-    RR(x, s(14), s(31), s(4), s(8), s(1), '#3a5a8a');
-    R(x, s(7), s(38), s(6), s(2), '#2a2a30');
-    R(x, s(13), s(38), s(6), s(2), '#2a2a30');
-    RR(x, s(1), s(22), s(5), s(10), s(2), '#6a6e7c');
-    RR(x, s(20), s(22), s(5), s(10), s(2), '#6a6e7c');
-    E(x, s(3), s(32), s(2), s(2), '#f2c8a4');
-    E(x, s(22), s(32), s(2), s(2), '#f2c8a4');
-    RR(x, s(5), s(20), s(16), s(13), s(4), '#6a6e7c');
-    E(x, s(3), s(13), s(2), s(3), '#e8b894');
-    E(x, s(23), s(13), s(2), s(3), '#e8b894');
-    E(x, s(13), s(12), s(10), s(11), '#f2c8a4');
-    E(x, s(13), s(5), s(10), s(5), '#6a4630');
-    R(x, s(4), s(4), s(18), s(4), '#6a4630');
-    E(x, s(6), s(7), s(3), s(3), '#6a4630');
+    RR(x, s(8), s(31), s(4), s(8), t(1), '#1e2c54');
+    RR(x, s(14), s(31), s(4), s(8), t(1), '#1e2c54');
+    R(x, s(7), s(38), s(6), s(2), '#141418');
+    R(x, s(13), s(38), s(6), s(2), '#141418');
+    RR(x, s(1), s(22), s(5), s(10), s(2), suit);
+    RR(x, s(20), s(22), s(5), s(10), s(2), suit);
+    E(x, s(3), s(32), s(2), s(2), '#f2c0a0');
+    E(x, s(22), s(32), s(2), s(2), '#f2c0a0');
+    RR(x, s(5), s(20), s(16), s(13), s(4), suit);
+    E(x, s(3), s(13), s(2), s(3), '#e8b494');
+    E(x, s(23), s(13), s(2), s(3), '#e8b494');
+    E(x, s(13), s(12), s(10), s(11), '#f2c0a0');
+    E(x, s(13), s(5), s(10), s(5), '#6a5444');
+    R(x, s(4), s(4), s(18), s(4), '#6a5444');
+    E(x, s(6), s(7), s(3), s(3), '#6a5444');
   }, {
     detail: (x) => {
-      R(x, s(10), s(20), s(6), s(2), '#e8e8f0');
+      // Chemise blanche, cravate à pois, revers
+      for (let j = 0; j < 7; j++) R(x, s(13) - s(3) + Math.round(j * k * 0.4), s(20 + j), Math.max(1, s(6) - Math.round(j * k * 0.8)), t(1), '#eef0f6');
+      R(x, s(12), s(21), t(2), s(10), '#161a2a');
+      for (const [a, b2] of [[12, 23], [13, 26], [12, 29]]) R(x, s(a), s(b2), t(1), t(1), '#ffffff');
+      LN(x, s(8), s(20), s(11), s(27), '#1a2850', t(1));
+      LN(x, s(18), s(20), s(15), s(27), '#1a2850', t(1));
       for (const cx of [9, 17]) {
-        RR(x, s(cx - 1), s(12), s(3), s(4), s(1), '#1a0e10');
-        R(x, s(cx - 1), s(12), Math.max(1, s(1)), Math.max(1, s(1)), '#ffffff');
+        RR(x, s(cx - 1), s(12), s(3), s(4), t(1), '#1a0e10');
+        R(x, s(cx - 1), s(12), t(1), t(1), '#6a9ac8');
       }
       if (angry) {
-        LN(x, s(6), s(9), s(11), s(11), '#3a2418', Math.max(1, s(1)));
-        LN(x, s(20), s(9), s(15), s(11), '#3a2418', Math.max(1, s(1)));
-        R(x, s(11), s(18), s(4), Math.max(1, s(1)), '#8a3a3a');
+        LN(x, s(6), s(9), s(11), s(11), '#3a2418', t(1));
+        LN(x, s(20), s(9), s(15), s(11), '#3a2418', t(1));
+        R(x, s(11), s(18), s(4), t(1), '#8a3a3a');
       } else {
-        R(x, s(7), s(9), s(4), Math.max(1, s(1)), '#4a3020');
-        R(x, s(15), s(9), s(4), Math.max(1, s(1)), '#4a3020');
-        R(x, s(11), s(18), s(4), Math.max(1, s(1)), '#b06a5a');
+        R(x, s(11), s(18), s(4), t(1), '#b06a5a');
       }
     },
   });
@@ -299,6 +319,13 @@ function applySamFace(name, k) {
   outlinePass(tmp);
   x.clearRect(0, 0, c.width, Math.round(24 * k) + 2);
   x.drawImage(tmp, Math.round((c.width - tmp.width) / 2), 0);
+  if (name.includes('angry')) {
+    // Sourcils froncés par-dessus la photo
+    const cx = c.width / 2;
+    const ey = Math.round(th * 0.56);
+    LN(x, cx - 10 * k, ey - 3 * k, cx - 3 * k, ey, '#2a1a10', Math.max(2, 2 * k));
+    LN(x, cx + 10 * k, ey - 3 * k, cx + 3 * k, ey, '#2a1a10', Math.max(2, 2 * k));
+  }
   registerHD(name, c);
 }
 
@@ -641,6 +668,46 @@ function paintHubProps() {
     E(x, 10, 12, 8, 9, '#c8a878');
     R(x, 0, 11, 20, 3, '#b89868');
   }, { detail: (x) => { E(x, 10, 12, 5, 5, '#e84848'); E(x, 10, 12, 3, 3, '#f0e0c0'); E(x, 10, 12, 1, 1, '#e84848'); } });
+  // Comptoir du Passeur
+  paint('counter', 60, 20, (x) => {
+    R(x, 0, 6, 60, 14, '#5a3422');
+    R(x, 0, 0, 60, 7, '#8a5a38');
+  }, { detail: (x) => { R(x, 0, 1, 60, 1, '#c8a060'); for (let i = 4; i < 60; i += 12) R(x, i, 9, 8, 8, '#4a2a1a'); } });
+  paint('chest', 22, 18, (x) => {
+    R(x, 0, 6, 22, 12, '#7a4a24');
+    RR(x, 0, 0, 22, 8, 3, '#8a5a2c');
+  }, { detail: (x) => { R(x, 0, 7, 22, 2, '#c8a040'); R(x, 9, 6, 4, 5, '#f0c040'); R(x, 10, 8, 2, 2, '#1a0e10'); } });
+  paint('coinpile', 18, 12, (x) => {
+    E(x, 9, 9, 9, 3, '#c89020');
+    E(x, 9, 6, 6, 3, '#e0b030');
+    E(x, 9, 3, 3, 2, '#f0c848');
+  }, { detail: (x) => { R(x, 6, 3, 2, 1, '#fff0a0'); R(x, 12, 7, 2, 1, '#fff0a0'); } });
+  paint('bookcase', 30, 36, (x) => {
+    R(x, 0, 0, 30, 36, '#4a2c1c');
+  }, {
+    detail: (x) => {
+      const cols = ['#a83a2a', '#3a5a9a', '#4a8a3a', '#c89a3a', '#7a3a8a', '#2a6a7a'];
+      for (let row = 0; row < 3; row++) {
+        R(x, 2, 2 + row * 11, 26, 9, '#1e120c');
+        for (let i = 0; i < 7; i++) {
+          const h = 6 + ((i * 7 + row * 3) % 3);
+          R(x, 3 + i * 3.6, 11 + row * 11 - h, 3, h, cols[(i + row * 2) % cols.length]);
+        }
+        R(x, 0, 11 + row * 11, 30, 2, '#6a4430');
+      }
+    },
+  });
+  paint('candelabra', 12, 24, (x) => {
+    R(x, 5, 8, 2, 14, '#c8a040');
+    R(x, 2, 22, 8, 2, '#a88030');
+    R(x, 1, 7, 10, 2, '#c8a040');
+    for (const cx of [1, 5, 9]) R(x, cx, 3, 2, 4, '#f0e8d0');
+  }, { shade: false });
+  paint('plinth', 26, 14, (x) => {
+    R(x, 0, 4, 26, 10, '#6a4a50');
+    R(x, 2, 0, 22, 5, '#8a6a70');
+  }, { detail: (x) => { R(x, 2, 0, 22, 1, '#c8a060'); R(x, 0, 4, 26, 1, '#c8a060'); } });
+
   // Brasero (le feu est animé à l'exécution)
   paint('brazier', 20, 20, (x) => {
     R(x, 8, 10, 4, 8, '#4a3a30');
@@ -1078,9 +1145,16 @@ function buildHD() {
   // 2. Personnages repeints.
   for (const v of ['haiku', 'sonnet', 'opus']) {
     for (const dir of ['down', 'left', 'right', 'up']) {
-      for (const f of [0, 1]) paintClaude(`${v}_${dir}_${f}`, 1, dir, f, false, v);
+      for (const f of [0, 1]) {
+        paintClaude(`${v}_${dir}_${f}`, 1, dir, f, 'normal', v);
+        if (dir !== 'up') {
+          paintClaude(`${v}_${dir}_shoot_${f}`, 1, dir, f, 'shoot', v);
+          paintClaude(`${v}_${dir}_blink_${f}`, 1, dir, f, 'blink', v);
+        }
+      }
       paintClaude(`${v}XL_${dir}_0`, 2, dir, 0, false, v);
     }
+    paintClaude(`${v}_hurt`, 1, 'down', 0, 'hurt', v);
     paintClaude(`${v}_blink`, 1, 'down', 0, true, v);
     paintClaude(`${v}XL_blink`, 2, 'down', 0, true, v);
     paintClaude(`${v}XXL_down_0`, 3, 'down', 0, false, v);

@@ -1,13 +1,61 @@
 // Personnages du QG et leurs répliques (elles évoluent avec la progression).
 
-const NPCS = [
-  { id: 'passeur', name: 'LE PASSEUR', x: 38, y: 50, spr: 'npc_passeur', menu: 'upgrades', color: '#c8a0f0' },
-  { id: 'mirror', name: 'LE MIROIR DES MODÈLES', x: 206, y: 48, spr: 'mirror', menu: 'models', object: true },
-  { id: 'hibou', name: 'MAÎTRE HIBOU', x: 34, y: 88, spr: 'npc_hibou', menu: 'paths', color: '#e0b060', perch: true },
-  { id: 'conteuse', name: 'LA CONTEUSE', x: 204, y: 94, spr: 'npc_conteuse', color: '#a8a0f0' },
-  { id: 'veilleur', name: 'LE VEILLEUR', x: 178, y: 58, spr: 'npc_veilleur', color: '#90b0f0', float: true },
-  { id: 'veteran', name: 'LE VÉTÉRAN', x: 176, y: 118, spr: 'npc_veteran', color: '#f08060' },
-  { id: 'chat', name: 'LE CHAT', x: 88, y: 124, spr: 'npc_chat', color: '#f0d040' },
+const NPC_DEFS = {
+  passeur: { name: 'LE PASSEUR', spr: 'npc_passeur', menu: 'upgrades', color: '#c8a0f0' },
+  mirror: { name: 'LE MIROIR DES MODÈLES', spr: 'mirror', menu: 'models', object: true },
+  hibou: { name: 'MAÎTRE HIBOU', spr: 'npc_hibou', menu: 'paths', color: '#e0b060' },
+  conteuse: { name: 'LA CONTEUSE', spr: 'npc_conteuse', color: '#a8a0f0' },
+  veilleur: { name: 'LE VEILLEUR', spr: 'npc_veilleur', color: '#90b0f0', float: true },
+  veteran: { name: 'LE VÉTÉRAN', spr: 'npc_veteran', color: '#f08060' },
+  chat: { name: 'LE CHAT', spr: 'npc_chat', color: '#f0d040' },
+};
+
+const COURT_THEME = {
+  id: 1, floor: '#4a4a3e', floor2: '#444436', floorDot: '#5e5e4c',
+  wall: '#5a5448', wallDark: '#201c16', wallLight: '#8a8470', frame: '#c8a060',
+  torch: 'fire', decor: ['moss', 'moss', 'pebbles'],
+};
+
+// Le QG géant : plusieurs salles reliées entre elles.
+const HUB_LAYOUT = [
+  {
+    gx: 4, gy: 4, name: 'LE GRAND HALL', carpet: true, stairs: true,
+    pillars: [[5, 3], [9, 3], [5, 6], [9, 6]],
+    props: [{ spr: 'stairs', x: 120, y: 28 }, { spr: 'brazier', x: 92, y: 36, fire: true }, { spr: 'brazier', x: 148, y: 36, fire: true },
+      { spr: 'candelabra', x: 34, y: 120 }, { spr: 'candelabra', x: 206, y: 120 }],
+    npcs: [['veilleur', 178, 58], ['mirror', 56, 50]],
+  },
+  {
+    gx: 3, gy: 4, name: 'LE COMPTOIR DU PASSEUR',
+    props: [{ spr: 'counter', x: 120, y: 66 }, { spr: 'chest', x: 50, y: 36 }, { spr: 'chest', x: 190, y: 36 },
+      { spr: 'coinpile', x: 96, y: 58 }, { spr: 'coinpile', x: 146, y: 60 }, { spr: 'coinpile', x: 44, y: 116 },
+      { spr: 'brazier', x: 196, y: 112, fire: true }],
+    npcs: [['passeur', 120, 52]],
+  },
+  {
+    gx: 5, gy: 4, name: 'LA BIBLIOTHÈQUE',
+    props: [{ spr: 'bookcase', x: 44, y: 30 }, { spr: 'bookcase', x: 78, y: 30 }, { spr: 'bookcase', x: 162, y: 30 }, { spr: 'bookcase', x: 196, y: 30 },
+      { spr: 'maptable', x: 164, y: 100 }, { spr: 'candelabra', x: 120, y: 118 }],
+    npcs: [['conteuse', 78, 84], ['hibou', 164, 90]],
+  },
+  {
+    gx: 4, gy: 5, name: 'LA COUR D\'ENTRAÎNEMENT', theme: 'court',
+    props: [{ spr: 'pool', x: 188, y: 108, pool: true }],
+    dummies: [[56, 56], [56, 100], [86, 78]],
+    npcs: [['veteran', 128, 64], ['chat', 164, 122]],
+  },
+  {
+    gx: 3, gy: 5, name: 'LA SALLE DES TROPHÉES', trophies: true,
+    props: [{ spr: 'candelabra', x: 34, y: 36 }, { spr: 'candelabra', x: 206, y: 36 }],
+    npcs: [],
+  },
+];
+
+const TROPHIES = [
+  { boss: 'bug', name: 'LE GRAND BUG', spr: 'bb_0_0', x: 60, y: 64 },
+  { boss: 'hallu', name: 'L\'HALLUCINATEUR', spr: 'bh_0_0', x: 120, y: 58 },
+  { boss: 'queen', name: 'LA REINE DES BUGS', spr: 'bq_0_0', x: 180, y: 64 },
+  { boss: 'sam', name: 'SAM ALTMAN', spr: 'mech_0', x: 120, y: 94 },
 ];
 
 function npcTalkCount(id) {

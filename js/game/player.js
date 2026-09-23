@@ -38,6 +38,8 @@ class Player {
     this.holdT = 0;
     this.ghosts = [];
     this.echoQueue = [];
+    this.fireAnim = 0;
+    this.hurtAnim = 0;
     this.scale = 1;
     this.recompute();
   }
@@ -70,6 +72,8 @@ class Player {
     if (this.dashCd > 0) this.dashCd -= dt;
     if (this.fireCd > 0) this.fireCd -= dt;
     if (this.holdT > 0) this.holdT -= dt;
+    if (this.fireAnim > 0) this.fireAnim -= dt;
+    if (this.hurtAnim > 0) this.hurtAnim -= dt;
     this.blinkT -= dt;
     if (this.blinkT < -0.12) this.blinkT = rand(1.5, 4);
 
@@ -184,6 +188,9 @@ class Player {
       }));
     }
     if (!isEcho && s.echo > 0 && Math.random() < s.echo) this.echoQueue.push({ t: 0.08, dir });
+    this.fireAnim = 0.14;
+    this.fireDir = { x: Math.cos(base), y: Math.sin(base) };
+    g.particles.push({ type: 'flash', x: this.x + Math.cos(base) * 8, y: this.y - 5 + Math.sin(base) * 5, life: 0.07, max: 0.07 });
     Sound.play('shoot');
   }
 
@@ -199,10 +206,14 @@ class Player {
   }
 
   spriteName() {
-    if (this.face === 'down' && this.blinkT < 0) return `${this.prefix}_blink`;
+    const p = this.prefix;
+    if (this.hurtAnim > 0) return `${p}_hurt`;
     const moving = Math.hypot(this.vx, this.vy) > 10;
     const f = moving ? Math.floor(this.walkT * 10) % 2 : 0;
-    return `${this.prefix}_${this.face}_${f}`;
+    if (this.face === 'up') return `${p}_up_${f}`;
+    if (this.fireAnim > 0) return `${p}_${this.face}_shoot_${f}`;
+    if (this.blinkT < 0) return `${p}_${this.face}_blink_${f}`;
+    return `${p}_${this.face}_${f}`;
   }
 
   draw(ctx) {
@@ -211,15 +222,51 @@ class Player {
     }
     drawShadow(ctx, this.x, this.y + 3, 8, 2);
     // Clignote pendant l'invulnérabilité après un coup (pas pendant le dash)
-    if (this.inv > 0 && this.dashT <= 0 && !this.dashIframe && Math.floor(this.inv * 16) % 2 === 0) return;
+    if (this.inv > 0 && this.dashT <= 0 && !this.dashIframe && this.hurtAnim <= 0 && Math.floor(this.inv * 16) % 2 === 0) return;
     if (this.dashT <= 0 && this.inv <= 0) this.dashIframe = false;
-    const bob = this.holdT > 0 ? 0 : (Math.hypot(this.vx, this.vy) > 10 ? 0 : Math.round(Math.sin(this.animT * 3) * 0.6));
+    const by = this.y + 5;
     if (this.holdT > 0) {
-      drawSpr(ctx, `${this.prefix}_down_0`, this.x - 10, this.y - 15);
-      drawSprC(ctx, ITEMS[this.holdItem].icon, this.x, this.y - 23);
-    } else {
-      drawSpr(ctx, this.spriteName(), this.x - 10, this.y - 15 + bob);
+      // Brandit l'objet au-dessus de sa tête
+      drawSprSquash(ctx, `${this.prefix}_down_0`, this.x, by, 0.94, 1.08);
+      drawSprC(ctx, ITEMS[this.holdItem].icon, this.x, this.y - 25 + Math.sin(this.animT * 8));
+      return;
     }
+    const speed = Math.hypot(this.vx, this.vy);
+    let sx = 1;
+    let sy = 1;
+    let ox = 0;
+    let oy = 0;
+    if (this.dashT > 0) {
+      // Étirement dans le sens du dash
+      const ax = Math.abs(this.dashDir.x);
+      sx = 1 + 0.25 * ax - 0.12 * (1 - ax);
+      sy = 1 + 0.25 * (1 - ax) - 0.12 * ax;
+    } else if (this.fireAnim > 0) {
+      // Recul au tir
+      const k = this.fireAnim / 0.14;
+      sx = 1 + 0.1 * k;
+      sy = 1 - 0.08 * k;
+      ox = -this.fireDir.x * k * 1.5;
+      oy = -this.fireDir.y * k * 1.5;
+    } else if (speed > 10) {
+      // Petits rebonds de marche
+      const w = Math.abs(Math.sin(this.walkT * 15));
+      sy = 1 + 0.06 * w;
+      sx = 1 - 0.04 * w;
+      oy = -w * 1.2;
+    } else {
+      // Respiration
+      const b = Math.sin(this.animT * 3);
+      sy = 1 + 0.035 * b;
+      sx = 1 - 0.025 * b;
+    }
+    if (this.hurtAnim > 0) {
+      const k = this.hurtAnim / 0.5;
+      sx = 1 + 0.2 * k;
+      sy = 1 - 0.15 * k;
+      ox = Math.sin(this.animT * 60) * k * 1.5;
+    }
+    drawSprSquash(ctx, this.spriteName(), this.x + ox, by + oy, sx, sy, { flash: this.hurtAnim > 0.38 });
     if (this.shieldUp) {
       ctx.save();
       ctx.globalAlpha = 0.3 + Math.sin(this.animT * 5) * 0.1;

@@ -31,6 +31,7 @@ class Enemy {
   update(dt) {
     this.t += dt;
     if (this.flash > 0) this.flash -= dt;
+    if (this.sq > 0) this.sq = Math.max(0, this.sq - dt * 5);
     if (this.spawnT > 0) {
       this.spawnT -= dt;
       return;
@@ -58,6 +59,7 @@ class Enemy {
     if (this.dead || this.spawnT > 0 || this.invuln) return false;
     this.hp -= dmg;
     this.flash = 0.08;
+    this.sq = 1;
     this.kx += kx * this.kb;
     this.ky += ky * this.kb;
     this.g.onEnemyHurt(this, dmg);
@@ -89,18 +91,22 @@ class Enemy {
     Sound.play('ebullet');
   }
 
-  // Dessin générique d'un sprite avec apparition "matérialisation".
+  // Dessin générique : apparition, écrasement quand on est touché, respiration.
   drawSprite(ctx, name, ox = 0, oy = 0, o = {}) {
-    const s = SPR[name];
+    let spawnK = 1;
     if (this.spawnT > 0) {
-      const k = 1 - this.spawnT / 0.6;
+      spawnK = 1 - this.spawnT / 0.6;
       ctx.save();
-      ctx.globalAlpha = 0.3 + k * 0.7;
-      fillEllipse(ctx, this.x, this.y + 2, 8 * (1 - k) + 2, 3 * (1 - k) + 1, '#a86ae8');
+      ctx.globalAlpha = 0.3 + spawnK * 0.7;
+      fillEllipseHD(ctx, this.x, this.y + 2, 8 * (1 - spawnK) + 2, 3 * (1 - spawnK) + 1, '#a86ae8');
       ctx.restore();
-      if (Math.floor(this.spawnT * 20) % 2) return;
     }
-    drawSpr(ctx, name, this.x - Math.floor(s.w / 2) + ox, this.y - s.h + 4 + oy, {
+    const k = this.sq || 0;
+    const breathe = this.boss ? 0 : Math.sin(this.t * 5 + this.x * 0.1) * 0.04;
+    let sx = (1 + 0.28 * k - breathe * 0.7) * (o.sx || 1);
+    let sy = (1 - 0.24 * k + breathe) * (o.sy || 1);
+    if (this.spawnT > 0) { sx *= spawnK; sy *= 0.3 + spawnK * 0.7; }
+    drawSprSquash(ctx, name, this.x + ox, this.y + 4 + oy, sx, sy, {
       flash: this.flash > 0, alpha: this.alpha, flip: o.flip,
     });
   }
@@ -114,6 +120,9 @@ class Enemy {
 }
 
 // Bug : fonce vers Claude en contournant les obstacles.
+// Couleur de la tache laissée au sol à la mort (façon Isaac).
+Enemy.prototype.splat = '#3a6a28';
+
 class Bug extends Enemy {
   constructor(g, x, y) {
     super(g, x, y);
@@ -131,7 +140,8 @@ class Bug extends Enemy {
   }
 
   drawSelf(ctx) {
-    this.drawSprite(ctx, this.variant + (Math.floor(this.t * 8) % 2 ? '_a' : '_b'));
+    const f = Math.floor(this.t * 8) % 2;
+    this.drawSprite(ctx, this.variant + (f ? '_a' : '_b'), 0, 0, { sx: f ? 1.05 : 0.96, sy: f ? 0.95 : 1.04 });
   }
 }
 
@@ -164,7 +174,7 @@ class Fly extends Enemy {
 
   draw(ctx) {
     drawShadow(ctx, this.x, this.y + 6, 3, 1);
-    this.drawSprite(ctx, Math.floor(this.t * 20) % 2 ? 'fly_a' : 'fly_b', 0, -2);
+    this.drawSprite(ctx, Math.floor(this.t * 20) % 2 ? 'fly_a' : 'fly_b', 0, -2 + Math.round(Math.sin(this.t * 9) * 1.5));
   }
 }
 
@@ -219,8 +229,12 @@ class Slime extends Enemy {
 
   drawSelf(ctx) {
     const name = this.small ? this.variant + '_s' : this.variant;
-    const squash = this.state === 'wait' && this.st < 0.2 ? 1 : 0;
-    this.drawSprite(ctx, name, 0, -Math.round(this.z) + squash);
+    // Saut : étiré en l'air, écrasé avant de bondir
+    let sx = 1;
+    let sy = 1;
+    if (this.state === 'hop') { sx = 0.85; sy = 1.2; }
+    else if (this.st < 0.25) { sx = 1.22; sy = 0.8; }
+    this.drawSprite(ctx, name, 0, -Math.round(this.z), { sx, sy });
   }
 }
 
@@ -256,7 +270,8 @@ class Spambot extends Enemy {
 
   drawSelf(ctx) {
     const firing = this.cd < 0.3;
-    this.drawSprite(ctx, firing ? 'spambot_fire' : 'spambot', 0, Math.round(Math.sin(this.t * 6)));
+    const shake = firing ? Math.round(Math.sin(this.t * 50)) : 0;
+    this.drawSprite(ctx, firing ? 'spambot_fire' : 'spambot', shake, Math.round(Math.sin(this.t * 6)), firing ? { sx: 1.08, sy: 0.92 } : {});
   }
 }
 
@@ -283,7 +298,9 @@ class Captcha extends Enemy {
   }
 
   drawSelf(ctx) {
-    this.drawSprite(ctx, this.cd < 0.35 ? 'captcha_fire' : 'captcha');
+    const c = this.cd < 0.35;
+    const swell = c ? 1 + (0.35 - this.cd) * 0.4 : 1;
+    this.drawSprite(ctx, c ? 'captcha_fire' : 'captcha', 0, 0, { sx: swell, sy: 2 - swell });
   }
 }
 
@@ -335,7 +352,7 @@ class Ghost extends Enemy {
     ctx.globalAlpha = this.alpha * 0.35;
     fillEllipse(ctx, this.x, this.y + 6, 5, 1, '#000');
     ctx.restore();
-    this.drawSprite(ctx, Math.floor(this.t * 4) % 2 ? 'ghost' : 'ghost_b', 0, Math.round(Math.sin(this.t * 3) * 2) - 2);
+    this.drawSprite(ctx, Math.floor(this.t * 4) % 2 ? 'ghost' : 'ghost_b', 0, Math.round(Math.sin(this.t * 3) * 2) - 2, { sx: 1 - Math.sin(this.t * 3) * 0.05, sy: 1 + Math.sin(this.t * 3) * 0.06 });
   }
 }
 
@@ -429,6 +446,13 @@ class Dummy extends Enemy {
     this.drawSprite(ctx, 'dummy', this.wob > 0 ? Math.round(Math.sin(this.t * 50)) : 0);
   }
 }
+
+Fly.prototype.splat = '#6a1420';
+Slime.prototype.splat = '#3a8a3a';
+Spambot.prototype.splat = '#1a1a22';
+Captcha.prototype.splat = '#2a2a38';
+Ghost.prototype.splat = '#6a4a9a';
+Injector.prototype.splat = '#2a5a30';
 
 const ENEMY_TYPES = {
   injector: Injector,

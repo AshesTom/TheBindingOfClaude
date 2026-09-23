@@ -161,7 +161,7 @@ function renderRoomBG(room, theme, opts = {}) {
   R(x, WH - 2, 0, 2, HH, '#000');
 
   // Tapis rouge du QG
-  if (theme.id === 5) {
+  if (opts.carpet) {
     R(x, 196, T, 88, HH - 2 * T, '#1a0608');
     R(x, 200, T, 80, HH - 2 * T, '#c8a060');
     R(x, 204, T, 72, HH - 2 * T, '#8a1a22');

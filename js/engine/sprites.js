@@ -184,6 +184,28 @@ function drawSpr(ctx, name, x, y, o = {}) {
   if (needSave) ctx.restore();
 }
 
+// Dessine un sprite ancré en bas au centre, avec écrasement / étirement (sx, sy).
+function drawSprSquash(ctx, name, cx, by, sx = 1, sy = 1, o = {}) {
+  const s = SPR[name];
+  if (!s) return;
+  let img = s.img;
+  if (o.flash) img = s.white;
+  else if (o.tint) {
+    s.tints = s.tints || {};
+    if (!s.tints[o.tint]) s.tints[o.tint] = silhouette(s.img, o.tint);
+    img = s.tints[o.tint];
+  }
+  ctx.save();
+  if (o.alpha !== undefined) ctx.globalAlpha *= o.alpha;
+  // Pas d'un demi-pixel logique = un pixel réel : le sprite reste net.
+  ctx.translate(Math.round(cx * 2) / 2, Math.round(by * 2) / 2);
+  const w = Math.round(s.w * sx * 2) / 2;
+  const h = Math.round(s.h * sy * 2) / 2;
+  if (o.flip) ctx.scale(-1, 1);
+  ctx.drawImage(img, -Math.round(w) / 2, -h, w, h);
+  ctx.restore();
+}
+
 // Dessine un sprite centré sur (cx, cy).
 function drawSprC(ctx, name, cx, cy, o = {}) {
   const s = SPR[name];
