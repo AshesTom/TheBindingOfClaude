@@ -1,6 +1,6 @@
 // La run : étages, salles, portes, transitions, boss, récompenses et retournements.
 
-const DOOR_OFF = { up: [0, -10], down: [0, 10], left: [-10, 0], right: [10, 0] };
+const DOOR_OFF = { up: [0, -13], down: [0, 13], left: [-13, 0], right: [13, 0] };
 
 class RunScene extends PlayScene {
   constructor(o = {}) {

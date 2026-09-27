@@ -65,7 +65,7 @@ class Familiar {
           const d = DIRS[p.shootDirNow];
           const sp = 170;
           const dmg = this.kind === 'buddy' ? 3.5 : 3 * this.mult;
-          G.tears.push(new Tear(this.x, this.y - 2, d.dx * sp, d.dy * sp, { dmg, range: 140, z: 7, color: this.kind === 'buddy' ? 'tear' : 'tearB' }));
+          G.tears.push(new Tear(this.x, this.y - 2, d.dx * sp, d.dy * sp, { dmg, range: 140, z: 7, color: this.kind === 'buddy' ? 'tearO' : 'tearB' }));
           this.cd = this.kind === 'buddy' ? 0.7 : 1.1 / (0.8 + this.lvl * 0.2);
         }
         break;

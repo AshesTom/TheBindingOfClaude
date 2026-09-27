@@ -14,7 +14,7 @@ const BOSS_INFO = {
 
 class Boss extends Enemy {
   constructor(type, x, y, hp) {
-    super(type, x, y, { hp, noScale: true });
+    super(type, x, y, { hp, noScale: true, noChampion: true });
     this.isBoss = true;
     this.heavy = true;
     this.name = BOSS_INFO[type] ? BOSS_INFO[type].name : type;
@@ -660,7 +660,7 @@ class SamBoss extends Boss {
         if (this.pt > 0.5 && !this.st.a) {
           this.st.a = 1;
           const n = G.enemies.filter((e) => !e.dead && !e.isBoss).length;
-          if (n < 3) for (let i = 0; i < 2; i++) G.spawnEnemy('drone', this.x + (i ? 40 : -40), this.y - 10);
+          if (n < 3) for (let i = 0; i < 2; i++) G.spawnEnemy('pooter', this.x + (i ? 40 : -40), this.y - 10);
         }
         if (this.pt > 1.2) this.endPat();
         break;
@@ -796,8 +796,8 @@ class NarratorBoss extends Boss {
           this.st.a = 1;
           const n = G.enemies.filter((e) => !e.dead && !e.isBoss).length;
           if (n < 4) {
-            G.spawnEnemy(choice(['ghost', 'glitch', 'zombie']), rand(FX + 30, FX2 - 30), rand(FY + 60, FY2 - 20));
-            G.spawnEnemy(choice(['ghost', 'glitch', 'drone']), rand(FX + 30, FX2 - 30), rand(FY + 60, FY2 - 20));
+            G.spawnEnemy(choice(['wizoob', 'gaper', 'clotty']), rand(FX + 30, FX2 - 30), rand(FY + 60, FY2 - 20));
+            G.spawnEnemy(choice(['wizoob', 'boomfly', 'hive']), rand(FX + 30, FX2 - 30), rand(FY + 60, FY2 - 20));
           }
         }
         if (this.pt > 2) this.endPat();

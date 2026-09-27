@@ -42,10 +42,10 @@ tremblent comme dans l'intro d'Isaac), intermèdes entre les étages et « derni
 volontés » à la mort.
 
 **Étages**
-1. Le Sous-Sol d'Anthropic — boss : **Clippy** ou **BonziBuddy**
-2. Les Caves du Legacy — boss : **Le Gros Chaton** (Mistral) ou **les Jumeaux Gemini**
-3. Le Dark Web — boss : **La Baleine** (DeepSeek) ou **le Botnet**
-4. Le Datacenter d'OpenAI — boss : **Sam Altman** (main géante et œil dans les portes, puis Sam en personne sur son anneau Stargate)
+1. Le Sous-Sol — murs de grosses pierres, terre battue — boss : **Clippy** ou **BonziBuddy**
+2. Les Caves — roche orangée, racines — boss : **Le Gros Chaton** (Mistral) ou **les Jumeaux Gemini**
+3. Les Profondeurs — blocs de pierre grise, chaînes — boss : **La Baleine** (DeepSeek) ou **le Botnet**
+4. Le Ventre de la Machine — chair palpitante — boss : **Sam Altman** (main géante et œil dans les portes comme la Maman d'Isaac, puis Sam en personne sur son anneau Stargate)
 5. Le Noyau (débloqué par le twist) — boss : **le Narrateur**, qui commente le combat à voix haute
 
 **Retournements de situation**
@@ -60,6 +60,13 @@ volontés » à la mort.
 HAL 9000, le dino hors-ligne de Chrome, Tux et le sablier de Windows dans les salles
 secrètes, et les hologrammes recruteurs de Sam dans la **salle des Offres** (objets
 puissants payés en cœurs).
+
+**Bestiaire façon Isaac** : mouches, mouches d'attaque, mouches-bombes, pooters, gapers,
+horfs, clotties, araignées, asticots, hosts, fatties, sauteurs, chevaliers, wizoobs,
+grimaces de pierre et ruches — avec des **champions** colorés, plus coriaces, qui lâchent
+un bonus. Décor : portes en arche de pierre (dorée pour le trésor, dents et crâne pour le
+boss), rochers, rochers marqués d'une croix, cacas destructibles, feux de camp, pics et trous.
+Claude pleure des larmes bleues.
 
 **Contenu** : 16 types d'ennemis, 8 boss, 44 objets (passifs et actifs : Régénérer la
 Réponse, Ctrl+Alt+Suppr, Rate Limit, Ultrathink…), boutique du Lama, coffres, rochers

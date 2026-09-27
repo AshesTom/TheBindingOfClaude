@@ -77,6 +77,15 @@ function drawHUD(ctx, s) {
     const by = H - 14;
     darkBox(ctx, bx - 4, by - 4, bw + 8, 12);
     bar(ctx, bx, by, bw, 4, k, '#c02020', '#3a0a0a');
+    // petit crâne façon Isaac
+    ctx.fillStyle = '#000';
+    ctx.fillRect(bx - 12, by - 4, 10, 10);
+    ctx.fillStyle = '#e8e0d0';
+    ctx.fillRect(bx - 11, by - 3, 8, 6);
+    ctx.fillRect(bx - 10, by + 3, 6, 2);
+    ctx.fillStyle = '#1a0a0a';
+    ctx.fillRect(bx - 10, by - 1, 2, 2);
+    ctx.fillRect(bx - 6, by - 1, 2, 2);
     Font.draw(ctx, s.bossName || bosses[0].name, W / 2, by - 13, '#f4ecd8', { align: 'center', outline: '#000' });
   }
 }

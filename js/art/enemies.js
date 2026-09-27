@@ -1,6 +1,10 @@
-// Sprites des ennemis : la faune des tréfonds de l'informatique.
+// Sprites des ennemis façon The Binding of Isaac : chair pâle, orbites vides, sang.
 
 const EYE_R = '#ff3030';
+const SKIN = '#e2c4a8';
+const SKIN_D = '#b88c74';
+const BLOOD = '#9a1414';
+const HOLE = '#1a0606';
 
 function eyes2(p, x1, x2, y, col = OUTLINE, w = 2, h = 2, shine = true) {
   p.rect(x1, y, w, h, col);
@@ -8,23 +12,287 @@ function eyes2(p, x1, x2, y, col = OUTLINE, w = 2, h = 2, shine = true) {
   if (shine) { p.px(x1, y, '#ffffff'); p.px(x2, y, '#ffffff'); }
 }
 
-// 1. Bug : scarabée noir aux yeux rouges
+// Orbite vide qui saigne
+function holeEye(p, x, y, r = 2, drip = 3) {
+  p.ell(x, y, r + 0.3, r + 0.6, HOLE);
+  if (drip) p.rect(Math.round(x) - 1, Math.round(y + r), 2, drip, BLOOD);
+}
+
+const WING = 'rgba(230,236,255,0.7)';
+
+// Mouche noire
 for (let f = 0; f < 2; f++) {
-  defSpr(`bug_${f}`, () => paint(14, 12, (p) => {
-    p.ell(7, 8, 5, 4, '#3a2a2a');
-    p.circ(7, 4.5, 3, '#2a1c1c');
+  defSpr(`fly_${f}`, () => paint(14, 12, (p) => {
+    p.circ(7, 7.5, 3.8, '#2a2426');
   }, {
     detail: (p) => {
-      p.px(5, 4, EYE_R); p.px(8, 4, EYE_R);
-      p.rect(7, 6, 1, 5, '#140a0a');
-      // ailes
-      const c = 'rgba(220,230,255,0.75)';
-      if (f === 0) { p.ell(3, 3, 3, 2, c); p.ell(11, 3, 3, 2, c); }
-      else { p.ell(2, 6, 3, 2, c); p.ell(12, 6, 3, 2, c); }
+      if (f === 0) { p.ell(3, 3, 3, 2, WING); p.ell(11, 3, 3, 2, WING); }
+      else { p.ell(2, 6, 3, 1.6, WING); p.ell(12, 6, 3, 1.6, WING); }
+      p.px(5, 6, '#8a2a2a'); p.px(8, 6, '#8a2a2a');
+    },
+  }));
+  // Mouche d'attaque : rouge sang, yeux blancs
+  defSpr(`attackfly_${f}`, () => paint(14, 12, (p) => {
+    p.circ(7, 7.5, 4, '#7a1818');
+  }, {
+    detail: (p) => {
+      if (f === 0) { p.ell(3, 3, 3, 2, WING); p.ell(11, 3, 3, 2, WING); }
+      else { p.ell(2, 6, 3, 1.6, WING); p.ell(12, 6, 3, 1.6, WING); }
+      p.px(5, 6, '#ffffff'); p.px(8, 6, '#ffffff');
+      p.rect(6, 9, 2, 1, HOLE);
+    },
+  }));
+  // Mouche-bombe : ventre gonflé, prête à exploser
+  defSpr(`boomfly_${f}`, () => paint(18, 16, (p) => {
+    p.circ(9, 9.5, 6, '#c02a1a');
+  }, {
+    detail: (p) => {
+      if (f === 0) { p.ell(3, 3, 4, 2.4, WING); p.ell(15, 3, 4, 2.4, WING); }
+      else { p.ell(2, 7, 4, 2, WING); p.ell(16, 7, 4, 2, WING); }
+      p.rect(5, 7, 2, 2, HOLE); p.rect(11, 7, 2, 2, HOLE);
+      p.px(7, 12, '#ffd040'); p.px(10, 12, '#ffd040'); p.px(8, 13, '#ffd040');
+      p.px(6, 5, '#ffb0a0');
+    },
+  }));
+  // Pooter : grosse mouche-tête qui crache
+  defSpr(`pooter_${f}`, () => paint(20, 18, (p) => {
+    p.circ(10, 10, 6.5, '#8a5a5a');
+    p.ell(10, 15, 4, 2.5, '#8a5a5a');
+  }, {
+    detail: (p) => {
+      if (f === 0) { p.ell(3, 4, 4, 2.5, WING); p.ell(17, 4, 4, 2.5, WING); }
+      else { p.ell(2, 8, 4, 2, WING); p.ell(18, 8, 4, 2, WING); }
+      p.rect(6, 7, 3, 3, HOLE); p.rect(11, 7, 3, 3, HOLE);
+      p.px(7, 8, '#ff4040'); p.px(12, 8, '#ff4040');
+      p.ell(10, 13, 2.5, 1.8, HOLE);
     },
   }));
 }
 
+// Gaper : humain pâle à grosse tête, orbites vides qui saignent
+for (let f = 0; f < 2; f++) {
+  defSpr(`gaper_${f}`, () => paint(20, 28, (p) => {
+    p.rr(6, 20, 3, 8 - (f ? 2 : 0), 1, SKIN_D);
+    p.rr(11, 20, 3, 8 - (f ? 0 : 2), 1, SKIN_D);
+    p.rr(5, 13, 10, 9, 3, SKIN);
+    p.rr(2, 14 + f, 4, 7, 2, SKIN);
+    p.rr(14, 15 - f, 4, 7, 2, SKIN);
+    p.circ(10, 8, 7.5, SKIN);
+  }, {
+    shade: { hi: 0.18, lo: 0.3, grad: 0.2 },
+    detail: (p) => {
+      holeEye(p, 7, 7, 1.8, 4);
+      holeEye(p, 13, 7, 1.8, 4);
+      p.ell(10, 12.5, 2.2, 1.6, HOLE);
+      p.rect(8, 16, 4, 1, SKIN_D);
+      p.px(10, 21, BLOOD);
+    },
+  }));
+}
+
+// Horf : tête flottante coupée, qui tremble et crache
+for (let f = 0; f < 2; f++) {
+  defSpr(`horf_${f}`, () => paint(18, 18, (p) => {
+    p.circ(9, 8.5, 7.5, '#d8b49c');
+  }, {
+    shade: { hi: 0.2, lo: 0.32, grad: 0.2 },
+    detail: (p) => {
+      p.line(4, 6, 7, 7, HOLE); p.line(14, 6, 11, 7, HOLE);
+      p.px(6, 8, HOLE); p.px(12, 8, HOLE);
+      if (f) { p.ell(9, 12, 3, 2.5, HOLE); p.rect(8, 11, 2, 1, BLOOD); }
+      else p.rect(6, 12, 6, 1, HOLE);
+      p.rect(6, 16, 6, 2, BLOOD);
+      p.px(8, 17, '#e04040');
+    },
+  }));
+}
+
+// Clotty : caillot de sang qui crache en croix
+for (let f = 0; f < 2; f++) {
+  defSpr(`clotty_${f}`, () => paint(22, 18, (p) => {
+    const sq = f ? 1 : 0;
+    p.ell(11, 12 + sq, 10 + sq, 5.5 - sq, '#8a1414');
+    p.ell(11, 8 + sq * 2, 7.5, 6 - sq, '#a01c1c');
+    p.circ(5, 10 + sq, 3, '#8a1414');
+    p.circ(17, 11 + sq, 2.6, '#7a1010');
+  }, {
+    shade: { hi: 0.35, lo: 0.3 },
+    outline: '#2a0404',
+    detail: (p) => {
+      p.rect(7, 8 + f, 3, 3, HOLE); p.rect(12, 8 + f, 3, 3, HOLE);
+      p.px(8, 8 + f, '#ffffff'); p.px(13, 8 + f, '#ffffff');
+      p.px(6, 5, '#ff8080'); p.px(14, 6, '#ff8080');
+    },
+  }));
+}
+
+// Araignée noire
+for (let f = 0; f < 2; f++) {
+  defSpr(`spider_${f}`, () => paint(20, 12, (p) => {
+    for (let i = 0; i < 4; i++) {
+      const lift = (i + f) % 2 ? 1 : 0;
+      p.line(8, 6, 1 + i * 2, 11 - lift, '#1a1414');
+      p.line(12, 6, 19 - i * 2, 11 - lift, '#1a1414');
+    }
+    p.ell(10, 6.5, 5, 4.2, '#2a2224');
+  }, {
+    detail: (p) => {
+      p.px(8, 5, EYE_R); p.px(11, 5, EYE_R); p.px(9, 4, EYE_R); p.px(10, 4, EYE_R);
+    },
+  }));
+}
+
+// Asticot (chargeur) : ver pâle segmenté
+for (let f = 0; f < 2; f++) {
+  defSpr(`maggot_${f}`, () => paint(24, 12, (p) => {
+    for (let i = 0; i < 4; i++) {
+      const y = 6.5 + (((i + f) % 2) ? -0.8 : 0.8);
+      p.circ(4 + i * 4, y, 3.6, i % 2 ? '#e8dcc8' : '#f0e6d4');
+    }
+    p.circ(19, 6.5, 4.5, '#f4ead8');
+  }, {
+    shade: { hi: 0.2, lo: 0.32 },
+    detail: (p) => {
+      p.ell(21, 7, 1.5, 2, HOLE);
+      p.px(19, 4, HOLE);
+      for (let i = 0; i < 4; i++) p.rect(3 + i * 4, 4, 1, 5, '#c8b8a0');
+    },
+  }));
+}
+
+// Host : crâne enterré dans un monticule, qui sort pour tirer
+defSpr('host_closed', () => paint(24, 14, (p) => {
+  p.ell(12, 10, 11, 4, '#5a4230');
+  p.ell(12, 7, 7, 5, '#e8dcc8');
+}, {
+  detail: (p) => {
+    p.rect(8, 10, 8, 2, '#5a4230');
+    p.line(10, 4, 12, 6, '#b8a890');
+  },
+}));
+defSpr('host_open', () => paint(24, 26, (p) => {
+  p.ell(12, 22, 11, 4, '#5a4230');
+  p.rr(5, 4, 14, 16, 6, '#e8dcc8');
+  p.rect(7, 16, 10, 5, '#e0d4c0');
+}, {
+  detail: (p) => {
+    p.ell(9, 11, 2.5, 3, HOLE); p.ell(15, 11, 2.5, 3, HOLE);
+    p.px(9, 11, '#ff3030'); p.px(15, 11, '#ff3030');
+    p.rect(11, 15, 2, 2, HOLE);
+    for (let x = 8; x < 17; x += 2) p.rect(x, 19, 1, 2, '#6a5a4a');
+    p.ell(12, 22, 11, 3, '#5a4230');
+  },
+}));
+
+// Fatty : gros humain pâle et lent
+for (let f = 0; f < 2; f++) {
+  defSpr(`fatty_${f}`, () => paint(30, 30, (p) => {
+    const s = f ? 1 : 0;
+    p.rr(8, 25, 5, 5, 2, SKIN_D);
+    p.rr(17, 25, 5, 5, 2, SKIN_D);
+    p.ell(15, 18 + s, 13 + s, 10 - s, SKIN);
+    p.rr(0, 13 + s, 6, 10, 3, SKIN);
+    p.rr(24, 13 + s, 6, 10, 3, SKIN);
+    p.circ(15, 7 + s, 6, SKIN);
+  }, {
+    shade: { hi: 0.2, lo: 0.3, grad: 0.2 },
+    detail: (p) => {
+      const s = f ? 1 : 0;
+      p.px(12, 6 + s, HOLE); p.px(18, 6 + s, HOLE);
+      p.rect(13, 9 + s, 4, 2, HOLE);
+      p.line(6, 20 + s, 24, 20 + s, SKIN_D);
+      p.line(8, 24 + s, 22, 24 + s, SKIN_D);
+      p.px(15, 17 + s, SKIN_D);
+    },
+  }));
+}
+
+// Sauteur (leaper) : humanoïde aux cuisses puissantes
+for (let f = 0; f < 2; f++) {
+  defSpr(`leaper_${f}`, () => paint(22, 26, (p) => {
+    const cr = f ? 3 : 0;
+    p.rr(3, 17 + cr, 6, 9 - cr, 3, SKIN_D);
+    p.rr(13, 17 + cr, 6, 9 - cr, 3, SKIN_D);
+    p.rr(5, 11 + cr, 12, 9, 3, SKIN);
+    p.circ(11, 6 + cr, 6, SKIN);
+  }, {
+    shade: { hi: 0.18, lo: 0.32, grad: 0.2 },
+    detail: (p) => {
+      const cr = f ? 3 : 0;
+      holeEye(p, 8.5, 5 + cr, 1.5, 2);
+      holeEye(p, 13.5, 5 + cr, 1.5, 2);
+      p.rect(9, 9 + cr, 4, 1, HOLE);
+    },
+  }));
+}
+
+// Chevalier : heaume de fer, cerveau à nu, invulnérable de face
+for (const d of ['down', 'up', 'left', 'right']) {
+  defSpr(`knight_${d}`, () => paint(22, 24, (p) => {
+    p.rr(2, 2, 18, 20, 7, '#6a6e7a');
+    p.rect(4, 18, 14, 5, '#4a4e5a');
+    if (d === 'up') p.ell(11, 8, 7, 5, '#d87a8a');
+  }, {
+    shade: { hi: 0.35, lo: 0.3 },
+    detail: (p) => {
+      if (d === 'up') {
+        p.line(7, 7, 10, 10, '#a04a5a'); p.line(13, 6, 15, 10, '#a04a5a');
+        return;
+      }
+      const dx = d === 'left' ? -3 : d === 'right' ? 3 : 0;
+      p.rect(5 + dx, 10, 12, 3, '#1a1a20');
+      p.px(8 + dx, 11, '#ff3030'); p.px(13 + dx, 11, '#ff3030');
+      p.rect(10 + dx, 13, 2, 6, '#3a3e48');
+      for (const y of [5, 16]) p.px(4, y, '#c0c4d0');
+    },
+  }));
+}
+
+// Wizoob : fantôme pâle qui se téléporte
+for (let f = 0; f < 2; f++) {
+  defSpr(`wizoob_${f}`, () => paint(20, 22, (p) => {
+    p.circ(10, 9, 8.5, '#eae8f0');
+    p.poly([[2, 10], [18, 10], [14 + f * 2, 21], [10, 16], [6 - f * 2, 21]], '#eae8f0');
+  }, {
+    shade: { hi: 0.12, lo: 0.28 },
+    outline: '#3a3a5a',
+    detail: (p) => {
+      p.ell(6.5, 8, 2, 3, HOLE); p.ell(13.5, 8, 2, 3, HOLE);
+      p.ell(10, 13, 2.5, 2 + f, HOLE);
+    },
+  }));
+}
+
+// Grimace : tête de pierre qui crache
+for (let f = 0; f < 2; f++) {
+  defSpr(`grimace_${f}`, () => paint(24, 24, (p) => {
+    p.rr(1, 1, 22, 22, 4, '#8a8478');
+  }, {
+    detail: (p) => {
+      p.line(4, 6, 10, 9, '#3a3630', 2); p.line(20, 6, 14, 9, '#3a3630', 2);
+      p.rect(5, 10, 5, 3, f ? '#ff3030' : '#1a1814');
+      p.rect(14, 10, 5, 3, f ? '#ff3030' : '#1a1814');
+      p.rr(6, 15, 12, f ? 6 : 4, 1, '#1a1814');
+      for (let x = 7; x < 18; x += 2) p.px(x, 15, '#d8d0c0');
+      p.line(3, 20, 8, 22, '#5a564c');
+    },
+  }));
+}
+
+// Ruche : amas de chair percé de trous, d'où sortent des mouches
+for (let f = 0; f < 2; f++) {
+  defSpr(`hive_${f}`, () => paint(26, 24, (p) => {
+    const s = f ? 1 : 0;
+    p.ell(13, 15, 12 + s, 9 - s, '#b86a4a');
+    p.ell(13, 9, 8, 7, '#c87a58');
+  }, {
+    shade: { hi: 0.25, lo: 0.32 },
+    detail: (p) => {
+      for (const [x, y] of [[8, 9], [15, 7], [18, 14], [9, 16], [13, 13]]) p.ell(x, y, 1.8, 1.4, HOLE);
+      p.rect(11, 19, 4, 2, '#5a2a1a');
+    },
+  }));
+}
 // 2. Spam : enveloppe volante enragée
 for (let f = 0; f < 2; f++) {
   defSpr(`spam_${f}`, () => paint(22, 16, (p) => {
@@ -39,93 +307,6 @@ for (let f = 0; f < 2; f++) {
       p.rect(8, 10, 2, 2, OUTLINE); p.rect(13, 10, 2, 2, OUTLINE);
       p.line(7, 9, 9, 10, OUTLINE); p.line(15, 9, 13, 10, OUTLINE);
       p.rect(14, 5, 3, 3, '#e04040');
-    },
-  }));
-}
-
-// 3. Processus zombie : petit corps gris, tête-écran « x_x », bras tendus
-for (let f = 0; f < 2; f++) {
-  defSpr(`zombie_${f}`, () => paint(18, 24, (p) => {
-    p.rr(5, 16, 3, 8 - (f ? 2 : 0), 1, '#4a5048');
-    p.rr(10, 16, 3, 8 - (f ? 0 : 2), 1, '#4a5048');
-    p.rr(4, 10, 10, 8, 2, '#8a9a80');
-    p.rect(0, 11, 5, 3, '#8a9a80');
-    p.rect(13, 11, 5, 3, '#8a9a80');
-    p.rr(2, 0, 14, 11, 2, '#b8b4a8');
-  }, {
-    detail: (p) => {
-      p.rect(4, 2, 10, 7, '#1a2a1a');
-      p.line(5, 3, 7, 5, '#50e050'); p.line(7, 3, 5, 5, '#50e050');
-      p.line(10, 3, 12, 5, '#50e050'); p.line(12, 3, 10, 5, '#50e050');
-      p.rect(6, 7, 6, 1, '#50e050');
-      p.rect(7, 13, 4, 3, '#6a1a1a');
-    },
-  }));
-}
-
-// 4. Web crawler : araignée-globe
-for (let f = 0; f < 2; f++) {
-  defSpr(`crawler_${f}`, () => paint(22, 14, (p) => {
-    for (let i = 0; i < 4; i++) {
-      const lift = (i + f) % 2 ? 1 : 0;
-      p.line(8, 7, 1 + i * 2, 12 - lift, '#1a1a24');
-      p.line(13, 7, 20 - i * 2, 12 - lift, '#1a1a24');
-    }
-    p.circ(11, 7, 6, '#2a4a8a');
-  }, {
-    detail: (p) => {
-      p.ring(11, 7, 5, '#60a0e0');
-      p.rect(6, 7, 11, 1, '#60a0e0');
-      p.rect(11, 2, 1, 11, '#60a0e0');
-      p.px(9, 4, EYE_R); p.px(13, 4, EYE_R); p.px(10, 3, EYE_R); p.px(12, 3, EYE_R);
-    },
-  }));
-}
-
-// 5. Fuite mémoire : flaque de gelée violette avec une barrette de RAM
-for (let f = 0; f < 2; f++) {
-  defSpr(`leak_${f}`, () => paint(22, 18, (p) => {
-    const sq = f ? 1 : 0;
-    p.ell(11, 11 + sq, 10 + sq, 6 - sq, '#7a3aa0');
-    p.ell(11, 7 + sq * 2, 7, 6 - sq, '#8a4ab0');
-  }, {
-    shade: { hi: 0.35, lo: 0.3 },
-    detail: (p) => {
-      p.rect(13, 1 + f * 2, 7, 4, '#2a7a3a');
-      p.rect(14, 2 + f * 2, 1, 2, '#e0c040'); p.rect(16, 2 + f * 2, 1, 2, '#e0c040'); p.rect(18, 2 + f * 2, 1, 2, '#e0c040');
-      eyes2(p, 7, 12, 8 + f, OUTLINE, 2, 3);
-      p.px(4, 12, '#d0a0f0'); p.px(16, 13, '#d0a0f0');
-    },
-  }));
-}
-
-// 6. Cookie traceur
-for (let f = 0; f < 2; f++) {
-  defSpr(`cookie_${f}`, () => paint(12, 12, (p) => {
-    p.circ(6, 6, 5.5, '#c08a44');
-  }, {
-    detail: (p) => {
-      const chips = f ? [[3, 3], [8, 4], [5, 8], [9, 8]] : [[4, 4], [8, 3], [3, 8], [8, 8]];
-      for (const [x, y] of chips) p.px(x, y, '#4a2a10');
-      p.line(3, 5, 5, 6, OUTLINE); p.line(9, 5, 7, 6, OUTLINE);
-      p.px(4, 6, EYE_R); p.px(7, 6, EYE_R);
-    },
-  }));
-}
-
-// 7. Ver informatique : segments verts
-for (let f = 0; f < 2; f++) {
-  defSpr(`worm_${f}`, () => paint(24, 12, (p) => {
-    for (let i = 0; i < 4; i++) {
-      const y = 6 + (((i + f) % 2) ? -1 : 1);
-      p.circ(4 + i * 4, y, 3.5, i % 2 ? '#4a9a3a' : '#5aaa4a');
-    }
-    p.circ(19, 6, 4.5, '#6aba5a');
-  }, {
-    detail: (p) => {
-      p.rect(19, 3, 2, 3, OUTLINE); p.px(19, 3, '#fff');
-      p.rect(21, 7, 2, 1, '#2a0a0a');
-      p.px(6, 5, '#a0f080'); p.px(10, 7, '#a0f080');
     },
   }));
 }
@@ -151,141 +332,6 @@ defSpr('popup_closed', () => paint(24, 8, (p) => {
     p.rect(1, 3, 22, 3, '#1a3a90');
   },
 }));
-
-// 9. Bloatware : gros tas rose avec un carton d'installation
-for (let f = 0; f < 2; f++) {
-  defSpr(`bloat_${f}`, () => paint(28, 28, (p) => {
-    const s = f ? 1 : 0;
-    p.ell(14, 17 + s, 13 + s, 10 - s, '#c07aa0');
-    p.ell(14, 10 + s, 9, 8, '#d08ab0');
-    p.rr(5, 24, 5, 4, 1, '#8a4a70');
-    p.rr(18, 24, 5, 4, 1, '#8a4a70');
-  }, {
-    detail: (p) => {
-      eyes2(p, 10, 16, 8 + (f ? 1 : 0), OUTLINE, 2, 2);
-      p.rect(11, 13, 6, 2, '#4a1a2a');
-      p.rect(8, 16, 12, 8, '#e0c890');
-      Font.draw(p.g, 'EXE', 9, 17, '#4a2a10');
-    },
-  }));
-}
-
-// 10. Cheval de Troie en bois
-for (let f = 0; f < 2; f++) {
-  defSpr(`trojan_${f}`, () => paint(24, 24, (p) => {
-    const cr = f ? 2 : 0;
-    p.rect(3, 19, 18, 3, '#6a4428');
-    p.circ(5, 22, 2, '#3a2a1a');
-    p.circ(19, 22, 2, '#3a2a1a');
-    p.rect(5, 16 + cr, 2, 4 - cr, '#8a5a34');
-    p.rect(17, 16 + cr, 2, 4 - cr, '#8a5a34');
-    p.rr(3, 9 + cr, 16, 8, 3, '#a8703e');
-    p.rr(15, 2 + cr, 7, 10, 2, '#a8703e');
-    p.rect(20, 5 + cr, 4, 4, '#a8703e');
-  }, {
-    detail: (p) => {
-      const cr = f ? 2 : 0;
-      p.rect(17, 4 + cr, 2, 2, OUTLINE);
-      p.rect(14, 2 + cr, 2, 6, '#5a3a20');
-      p.rect(8, 11 + cr, 5, 3, '#5a3a20');
-      p.px(9, 12 + cr, EYE_R); p.px(11, 12 + cr, EYE_R);
-    },
-  }));
-}
-
-// 11. Captcha : bloc de pierre couvert de lettres tordues
-for (let f = 0; f < 2; f++) {
-  defSpr(`captcha_${f}`, () => paint(22, 24, (p) => {
-    p.rr(1, 2, 20, 21, 3, '#9a948a');
-  }, {
-    detail: (p) => {
-      const g = p.g;
-      Font.draw(g, 'rX', 3, 4, '#3a2a6a');
-      Font.draw(g, '7q', 11, 5, '#6a2a2a');
-      p.line(2, 8, 20, 6, '#4a4040');
-      p.rect(4, 14, 5, 3, f ? '#ff3030' : OUTLINE);
-      p.rect(13, 14, 5, 3, f ? '#ff3030' : OUTLINE);
-      p.rect(7, 19, 8, 2, '#2a1a1a');
-    },
-  }));
-}
-
-// 12. Pare-feu : bloc de briques en flammes, les yeux vers sa direction
-for (const d of ['down', 'up', 'left', 'right']) {
-  defSpr(`firewall_${d}`, () => paint(22, 26, (p) => {
-    p.poly([[3, 8], [5, 0], [8, 5], [11, -1], [14, 5], [17, 0], [19, 8]], '#ff7a20');
-    p.rr(1, 6, 20, 20, 2, '#a83a2a');
-  }, {
-    detail: (p) => {
-      for (let y = 9; y < 26; y += 4) {
-        p.rect(1, y, 20, 1, '#6a1a14');
-        const off = (y / 4) % 2 ? 4 : 0;
-        for (let x = 3 + off; x < 21; x += 8) p.rect(x, y - 3, 1, 3, '#6a1a14');
-      }
-      p.poly([[7, 7], [9, 3], [11, 7]], '#ffe070');
-      if (d !== 'up') {
-        const dx = d === 'left' ? -3 : d === 'right' ? 3 : 0;
-        p.rect(6 + dx, 12, 3, 3, '#ffe070'); p.rect(13 + dx, 12, 3, 3, '#ffe070');
-        p.px(7 + dx, 13, OUTLINE); p.px(14 + dx, 13, OUTLINE);
-      }
-    },
-  }));
-}
-
-// 13. Hallucination : fantôme irisé
-for (let f = 0; f < 2; f++) {
-  defSpr(`ghost_${f}`, () => paint(18, 20, (p) => {
-    p.circ(9, 8, 7.5, '#e8f0ff');
-    p.rect(2, 8, 15, 8, '#e8f0ff');
-    for (let i = 0; i < 4; i++) p.circ(3.5 + i * 4 + (f ? 1 : 0), 16, 2, '#e8f0ff');
-  }, {
-    shade: { hi: 0.1, lo: 0.25 },
-    outline: '#4a4a8a',
-    detail: (p) => {
-      const rb = ['#ff8080', '#ffd080', '#80ff90', '#80c0ff', '#c080ff'];
-      rb.forEach((c, i) => p.rect(3 + i * 3, 13, 2, 1, c));
-      p.rect(5, 6, 3, 4, '#2a2a5a'); p.rect(10, 6, 3, 4, '#2a2a5a');
-      p.px(5, 6, '#fff'); p.px(10, 6, '#fff');
-      p.ell(9, 11.5, 1.5, 1, '#2a2a5a');
-    },
-  }));
-}
-
-// 14. Glitch : amas de pixels corrompus (3 poses)
-for (let f = 0; f < 3; f++) {
-  defSpr(`glitch_${f}`, () => {
-    const R = RNG(f * 31 + 7);
-    return paint(18, 18, (p) => {
-      p.rect(3, 3, 12, 12, '#1a1a2a');
-      for (let i = 0; i < 16; i++) {
-        p.rect(R.int(0, 14), R.int(0, 14), R.int(2, 5), R.int(1, 3), R.pick(['#ff2080', '#20e0ff', '#f0f040', '#20ff60', '#ffffff']));
-      }
-    }, {
-      shade: false,
-      detail: (p) => {
-        p.rect(5, 6, 3, 3, '#ffffff'); p.rect(11, 6, 3, 3, '#ffffff');
-        p.px(6, 7, '#ff0040'); p.px(12, 7, '#ff0040');
-      },
-    });
-  });
-}
-
-// 15. Drone de sécurité
-for (let f = 0; f < 2; f++) {
-  defSpr(`drone_${f}`, () => paint(24, 16, (p) => {
-    p.rect(2, 3, 5, 2, '#5a5a64');
-    p.rect(17, 3, 5, 2, '#5a5a64');
-    p.rr(5, 5, 14, 9, 3, '#8a8a96');
-    if (f === 0) { p.rect(0, 1, 9, 1, '#c0c0d0'); p.rect(15, 1, 9, 1, '#c0c0d0'); }
-    else { p.rect(2, 1, 5, 1, '#c0c0d0'); p.rect(17, 1, 5, 1, '#c0c0d0'); }
-  }, {
-    detail: (p) => {
-      p.circ(12, 9.5, 3, '#1a1a20');
-      p.circ(12, 9.5, 1.6, '#ff2030');
-      p.px(11, 8, '#ffc0c0');
-    },
-  }));
-}
 
 // Mini-Sam (sbire du boss final) : costume sombre, cheveux bruns
 for (let f = 0; f < 2; f++) {
@@ -356,50 +402,49 @@ defSpr('soulHalf', () => paint(12, 11, (p) => {
   p.circ(3.5, 3.5, 3.5, '#5a8ae0');
   p.poly([[0, 4], [6, 4], [6, 11]], '#5a8ae0');
 }, { shade: { hi: 0.4, lo: 0.3 }, detail: (p) => { p.rect(2, 2, 2, 1, '#e0f0ff'); } }));
+// Pièce (penny) qui brille
 for (let f = 0; f < 4; f++) {
   defSpr(`coin_${f}`, () => {
-    const wds = [5, 4, 2, 4];
-    const w = wds[f];
+    const w = [5, 4, 2, 4][f];
     return paint(12, 12, (p) => {
-      p.ell(6, 6, w + 0.5, 5.5, '#e8b830');
+      p.ell(6, 6, w + 0.5, 5.5, '#e0a830');
     }, {
-      shade: { hi: 0.35, lo: 0.3 },
+      shade: { hi: 0.4, lo: 0.32 },
       outline: '#5a3a06',
       detail: (p) => {
         if (w >= 4) {
-          p.rect(6, 3, 1, 6, '#a07a10');
-          p.rect(4, 6, 5, 1, '#a07a10');
-          p.px(4, 4, '#a07a10'); p.px(8, 8, '#a07a10'); p.px(8, 4, '#a07a10'); p.px(4, 8, '#a07a10');
+          p.ell(6, 6, w - 1.5, 3.5, '#c88a1a');
+          p.ell(6, 6, w - 2.5, 2.5, '#f0c040');
         }
-        p.px(6 - w + 1, 3, '#fff6c0');
+        if (f === 0) { p.px(3, 3, '#ffffff'); p.px(4, 2, '#fff6c0'); }
+        if (f === 1) p.px(6, 3, '#fff6c0');
       },
     });
   });
 }
+// Bombe classique
 defSpr('bomb', () => paint(14, 16, (p) => {
-  p.circ(7, 9.5, 6, '#2a2a34');
-  p.rect(5, 1, 4, 3, '#6a6a74');
+  p.circ(7, 9.5, 6, '#3a3a42');
+  p.rect(5, 2, 4, 3, '#5a5a64');
 }, {
-  shade: { hi: 0.3, lo: 0.2 },
+  shade: { hi: 0.35, lo: 0.25 },
   detail: (p) => {
-    p.rect(3, 6, 2, 2, '#9a9aa8');
-    Font.draw(p.g, '{}', 3, 7, '#e8e8f0');
-    p.line(9, 1, 11, -1, '#c0a060');
-    p.px(12, 0, '#ffd040');
+    p.rect(3, 6, 2, 2, '#b0b0bc');
+    p.px(4, 5, '#ffffff');
+    p.line(8, 2, 10, 0, '#c0a060');
+    p.px(11, 0, '#ffd040');
   },
 }));
-defSpr('key', () => paint(9, 16, (p) => {
-  p.circ(4.5, 4, 4, '#b8c0d8');
-  p.rect(3, 7, 3, 9, '#b8c0d8');
-  p.rect(6, 11, 3, 2, '#b8c0d8');
-  p.rect(6, 14, 2, 2, '#b8c0d8');
+// Clé dorée
+defSpr('key', () => paint(9, 17, (p) => {
+  p.ring(4.5, 4, 4, '#e0b030', 2);
+  p.rect(3, 7, 3, 10, '#e0b030');
+  p.rect(6, 12, 3, 2, '#e0b030');
+  p.rect(6, 15, 2, 2, '#e0b030');
 }, {
   shade: { hi: 0.4, lo: 0.3 },
-  outline: '#1a1a3a',
-  detail: (p) => {
-    p.circ(4.5, 4, 1.6, '#1a1a3a');
-    p.px(3, 2, '#ffffff');
-  },
+  outline: '#4a3006',
+  detail: (p) => { p.px(2, 2, '#fff6c0'); p.px(3, 9, '#fff0a0'); },
 }));
 defSpr('chest', () => paint(20, 15, (p) => {
   p.rect(1, 5, 18, 10, '#8a5a30');

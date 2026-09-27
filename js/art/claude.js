@@ -145,6 +145,9 @@ function paintClaude(costume, dir, frame, face) {
         } else if (face === 'shoot') {
           p.rect(ex - 1, ey + 2, 4, 2, OUTLINE);
           p.px(ex, ey + 2, '#ffffff');
+          // larmes façon Isaac
+          p.rect(ex + 1, ey + 4, 1, 3, '#5aa8f0');
+          p.px(ex + 1, ey + 7, '#b8dcff');
         } else if (face === 'hurt') {
           p.line(ex, ey + 1, ex + 2, ey + 3, OUTLINE);
           p.line(ex + 2, ey + 3, ex, ey + 5, OUTLINE);
@@ -186,34 +189,30 @@ function claudeSpr(costume, dir, frame, face = 'normal') {
   return c;
 }
 
-// Larme de Claude : petite étincelle orange (le « ✻ » de Claude), 3 tailles, 2 poses.
-function paintSpark(size, pose, color = '#ff9a5a') {
-  const n = size * 2 + 3;
-  const c0 = size + 1.5;
+// Larme de Claude : goutte d'eau bleue façon Isaac (3 tailles, 2 poses de scintillement).
+function paintTear(size, pose, color = '#5aa8f0') {
+  const r = size + 1.5;
+  const n = Math.ceil(r * 2) + 2;
+  const c0 = n / 2;
   return paint(n, n, (p) => {
-    p.circ(c0, c0, size * 0.75 + 0.8, color);
-    if (pose === 0) {
-      p.rect(Math.floor(c0), 0, 1, n, color);
-      p.rect(0, Math.floor(c0), n, 1, color);
-    } else {
-      p.line(1, 1, n - 2, n - 2, color);
-      p.line(n - 2, 1, 1, n - 2, color);
-    }
+    p.circ(c0, c0, r, color);
   }, {
-    shade: { hi: 0.4, lo: 0.25, grad: 0.1 },
-    outline: '#3a1208',
+    shade: { hi: 0.45, lo: 0.3, grad: 0.15 },
+    outline: shade(color, -0.6),
     detail: (p) => {
-      p.px(Math.floor(c0) - 1, Math.floor(c0) - 1, '#fff6e8');
-      if (size >= 2) p.px(Math.floor(c0), Math.floor(c0) - 1, '#fff6e8');
+      p.px(Math.floor(c0 - r * 0.45), Math.floor(c0 - r * 0.45), '#ffffff');
+      if (size >= 2) p.px(Math.floor(c0 - r * 0.45) + 1, Math.floor(c0 - r * 0.45), '#e8f4ff');
+      if (pose && size >= 2) p.px(Math.floor(c0 + r * 0.3), Math.floor(c0 + r * 0.3), '#d0e8ff');
     },
   });
 }
 for (let s = 1; s <= 4; s++) {
   for (let pz = 0; pz < 2; pz++) {
-    defSpr(`tear${s}_${pz}`, () => paintSpark(s, pz));
-    defSpr(`tearB${s}_${pz}`, () => paintSpark(s, pz, '#b8d4ff'));
-    defSpr(`tearP${s}_${pz}`, () => paintSpark(s, pz, '#a8e060'));
-    defSpr(`tearR${s}_${pz}`, () => paintSpark(s, pz, '#ff5a6a'));
+    defSpr(`tear${s}_${pz}`, () => paintTear(s, pz));
+    defSpr(`tearB${s}_${pz}`, () => paintTear(s, pz, '#c8d8ff'));
+    defSpr(`tearP${s}_${pz}`, () => paintTear(s, pz, '#7ad040'));
+    defSpr(`tearR${s}_${pz}`, () => paintTear(s, pz, '#e04030'));
+    defSpr(`tearO${s}_${pz}`, () => paintTear(s, pz, '#ff9a5a'));
   }
 }
 

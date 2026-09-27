@@ -13,6 +13,7 @@ function buildCells(layout) {
       else if (ch === 'b') c = { t: 'block' };
       else if (ch === 'f') c = { t: 'fire', hp: 4, blue: Math.random() < 0.1 };
       else if (ch === 's') c = { t: 'spikes' };
+      else if (ch === 'o') c = { t: 'pit' };
       row.push(c);
     }
     cells.push(row);
@@ -88,6 +89,7 @@ class Room {
     if (c.t === 'wall') return true;
     if (c.t === 'spikes' || c.t === 'ember') return false;
     if (who === 'fly') return false;
+    if (c.t === 'pit' && who === 'tear') return false;
     return true;
   }
 
@@ -139,7 +141,7 @@ class Room {
   // Dégât d'un tir sur une case (tas et feux). Renvoie true si le tir est arrêté.
   hitCell(gx, gy, dmg) {
     const c = this.cell(gx, gy);
-    if (!c || c.t === 'spikes' || c.t === 'ember') return false;
+    if (!c || c.t === 'spikes' || c.t === 'ember' || c.t === 'pit') return false;
     if (c.t === 'wall') return true;
     if (c.t === 'poop' || c.t === 'fire') {
       c.hit = (c.hit || 0) + dmg;
@@ -171,7 +173,7 @@ class Room {
     for (let gy = 0; gy < GH; gy++) {
       for (let gx = 0; gx < GW; gx++) {
         const c = this.cells[gy][gx];
-        if (!c || c.t === 'block' || c.t === 'spikes' || c.t === 'ember') continue;
+        if (!c || c.t === 'block' || c.t === 'spikes' || c.t === 'ember' || c.t === 'pit') continue;
         if (dist(x, y, cellX(gx), cellY(gy)) > radius + 12) continue;
         const cx = cellX(gx);
         const cy = cellY(gy);
@@ -264,6 +266,7 @@ class Room {
         const c = this.cells[gy][gx];
         if (!c) continue;
         if (c.t === 'spikes') ctx.drawImage(spr('spikes'), FX + gx * TILE, FY + gy * TILE);
+        if (c.t === 'pit') ctx.drawImage(spr('pit'), FX + gx * TILE - 1, FY + gy * TILE - 1);
         if (c.t === 'ember') {
           drawAt(ctx, 'brazier', cellX(gx), FY + (gy + 1) * TILE - 4);
         }
@@ -276,7 +279,7 @@ class Room {
     for (let gy = 0; gy < GH; gy++) {
       for (let gx = 0; gx < GW; gx++) {
         const c = this.cells[gy][gx];
-        if (!c || c.t === 'spikes' || c.t === 'ember') continue;
+        if (!c || c.t === 'spikes' || c.t === 'ember' || c.t === 'pit') continue;
         const x = cellX(gx);
         const y = FY + (gy + 1) * TILE;
         const fl = this.fl;

@@ -200,7 +200,7 @@ class Dungeon {
             if (ch === 'e') r.spawns.push({ type: choice(light), gx, gy });
             else if (ch === 'E') r.spawns.push({ type: choice(heavy), gx, gy });
             else if (ch === 'm') {
-              for (let i = 0; i < 3; i++) r.spawns.push({ type: 'bug', gx, gy, jitter: true });
+              for (let i = 0; i < 3; i++) r.spawns.push({ type: 'fly', gx, gy, jitter: true });
             }
           }
         });

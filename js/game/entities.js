@@ -72,7 +72,7 @@ class Tear {
       const gx = toGX(this.x);
       const gy = toGY(this.y);
       const c = G.room.cell(gx, gy);
-      if (c && c.t !== 'spikes' && c.t !== 'ember') {
+      if (c && c.t !== 'spikes' && c.t !== 'ember' && c.t !== 'pit') {
         if (G.room.hitCell(gx, gy, this.dmg)) {
           if (this.f.bounce && !this.bounced) {
             this.bounced = true;
@@ -106,7 +106,7 @@ class Tear {
     if (this.dead) return;
     this.dead = true;
     if (this.f.explosive && !hitEnemy) explode(this.x, this.y, { radius: 28, dmg: this.dmg * 1.5, hurtPlayer: false, small: true });
-    const col = this.color === 'tearB' ? ['#b8d4ff', '#ffffff'] : this.color === 'tearP' ? ['#a8e060', '#e0ffc0'] : this.color === 'tearR' ? ['#ff5a6a', '#ffd0a0'] : ['#ff9a5a', '#ffd0a0', '#fff0d0'];
+    const col = this.color === 'tearB' ? ['#b8d4ff', '#ffffff'] : this.color === 'tearP' ? ['#a8e060', '#e0ffc0'] : this.color === 'tearR' ? ['#ff5a6a', '#ffd0a0'] : this.color === 'tearO' ? ['#ff9a5a', '#ffd0a0'] : ['#5aa8f0', '#b8dcff', '#ffffff'];
     Particles.sparks(this.x, this.y - this.z, col, 5, { speed: 60, z: this.z });
     if (G.room) G.room.decal(this.x, this.y, col[0], 1, 0.35);
     if (Math.random() < 0.5) Sound.play('splat');
@@ -175,7 +175,7 @@ class Bullet {
     if (this.x < FX - 4 || this.x > FX2 + 4 || this.y < FY - 4 || this.y > FY2 + 4) return this.pop();
     if (!this.through && G.room && this.z < 14) {
       const c = G.room.cell(toGX(this.x), toGY(this.y));
-      if (c && c.t !== 'spikes' && c.t !== 'ember' && c.t !== 'wall') return this.pop();
+      if (c && c.t !== 'spikes' && c.t !== 'ember' && c.t !== 'wall' && c.t !== 'pit') return this.pop();
     }
     // Familiers-boucliers
     for (const f of G.fams) {
