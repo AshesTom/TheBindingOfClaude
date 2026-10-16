@@ -53,17 +53,96 @@ function stoneShade(x, y, size, seed, mortar = 1.6) {
 function wallInfo(x, y) {
   if (x >= FX && x < FX2 && y >= FY && y < FY2) return null;
   if (x < OX || x >= OX2 || y < OY || y >= OY2) return null;
-  const tTop = (FY - y) / (FY - OY);
-  const tBot = (y - FY2 + 1) / (OY2 - FY2);
-  const tL = (FX - x) / (FX - OX);
-  const tR = (x - FX2 + 1) / (OX2 - FX2);
-  const m = Math.max(tTop, tBot, tL, tR);
+  const ts = {
+    top: (FY - y) / (FY - OY),
+    bottom: (y - FY2 + 1) / (OY2 - FY2),
+    left: (FX - x) / (FX - OX),
+    right: (x - FX2 + 1) / (OX2 - FX2),
+  };
   let side = 'top';
-  if (m === tBot) side = 'bottom';
-  if (m === tL) side = 'left';
-  if (m === tR) side = 'right';
-  if (m === tTop) side = 'top';
-  return { side, depth: m };
+  let m = -1;
+  let m2 = -1;
+  for (const k of ['bottom', 'left', 'right', 'top']) {
+    const v = ts[k];
+    if (v >= m) { m2 = m; m = v; side = k; } else if (v > m2) m2 = v;
+  }
+  return { side, depth: m, second: m2 };
+}
+
+// Coordonnées de texture en perspective : chaque pan de mur est un trapèze,
+// U court le long du mur, V s'enfonce vers l'extérieur (0 = contre le sol).
+function wallUV(x, y, side, t) {
+  if (side === 'top' || side === 'bottom') {
+    const xl = lerp(FX, OX, t);
+    const xr = lerp(FX2, OX2, t);
+    const sx = (x - xl) / (xr - xl);
+    return [sx * 380 + (side === 'bottom' ? 1000 : 0), t * (side === 'top' ? 50 : 30)];
+  }
+  const yt = lerp(FY, OY, t);
+  const yb = lerp(FY2, OY2, t);
+  const sy = (y - yt) / (yb - yt);
+  return [sy * 230 + (side === 'left' ? 500 : 1500), t * 62];
+}
+
+// Texel de mur selon le style de l'étage : renvoie [couleur, luminosité]
+function wallTexel(U, V, st, seed, C) {
+  if (st === 'basement' || st === 'caves') {
+    const size = st === 'caves' ? 12 : 18;
+    const vv = V * 1.3;
+    const w = worley(U, vv, size, seed);
+    const edge = w.d2 - w.d1;
+    const crack = clamp(edge / 2.6, 0, 1);
+    const ou = (U - w.fx) / size;
+    const ov = (vv - w.fy) / size;
+    const dome = 1 - Math.min(1, (w.d1 / size) * (w.d1 / size)) * 0.3;
+    const bevel = 1 - ov * 0.32 - ou * 0.08;
+    const grain = fbm(U * 0.22, V * 0.22, seed + 4, 3);
+    let k = (0.82 + w.id * 0.24) * (0.62 + 0.38 * Math.pow(crack, 0.6)) * bevel * dome * (0.82 + grain * 0.34);
+    let col = C.WALL;
+    if (crack < 0.18) col = C.GROUT;
+    // taches d'humidité / mousse
+    if (st === 'caves' && fbm(U * 0.05, V * 0.08, seed + 9, 2) > 0.68) col = C.MOSS;
+    return [col, k];
+  }
+  if (st === 'depths') {
+    const bh = 9;
+    const bw = 21;
+    const row = Math.floor(V / bh);
+    const off = row % 2 ? bw / 2 : 0;
+    const bx = (U + off) % bw;
+    const by = V % bh;
+    const id = hash2(Math.floor((U + off) / bw), row, seed);
+    if (by < 1 || bx < 1.1) return [C.GROUT, 0.6];
+    let k = 0.84 + id * 0.24;
+    if (by < 2.2 || bx < 2.2) k *= 1.16;
+    if (by > bh - 1.6 || bx > bw - 1.4) k *= 0.74;
+    k *= 0.86 + fbm(U * 0.25, V * 0.25, seed + 2, 3) * 0.28;
+    if (hash2(Math.floor(U * 0.7), Math.floor(V * 0.7), seed + 5) > 0.985) k *= 0.6;
+    return [C.WALL, k];
+  }
+  if (st === 'womb') {
+    const h0 = fbm(U * 0.07, V * 0.1, seed + 20, 3);
+    const hv = fbm(U * 0.07, (V + 1) * 0.1, seed + 20, 3);
+    let k = 0.8 + (h0 - hv) * 6 + h0 * 0.3;
+    const v = worley(U, V, 22, seed + 30);
+    if (v.d2 - v.d1 < 1.1) return [C.VEIN, 0.85];
+    if (h0 > 0.64) k *= 1.18;
+    return [C.WALL, k];
+  }
+  if (st === 'planks') {
+    const row = Math.floor(V / 7);
+    const off = (row * 37) % 60;
+    const bx = (U + off) % 60;
+    if (V % 7 < 0.8 || bx < 1) return [C.GROUT, 0.8];
+    let k = 0.88 + hash2(Math.floor((U + off) / 60), row, 3) * 0.2;
+    k *= 0.94 + Math.sin(U * 0.6 + row) * 0.04 + fbm(U * 0.3, V * 0.6, seed, 2) * 0.1;
+    if (V % 7 < 1.8) k *= 1.1;
+    return [C.WALL, k];
+  }
+  // papier (le Noyau)
+  const word = hash2(Math.floor(U / 5), Math.floor(V / 5), seed) > 0.25;
+  if (Math.floor(V) % 5 === 2 && word && Math.floor(U) % 5 !== 0) return [C.INKC, 0.9];
+  return [C.WALL, 0.95 + hash2(Math.floor(U), Math.floor(V), seed) * 0.06];
 }
 
 function paintRoomBG(fl, variant = 0) {
@@ -82,6 +161,7 @@ function paintRoomBG(fl, variant = 0) {
   const BLUEL = rgb('#8aa0c0');
   const REDL = rgb('#c06060');
   const VEIN = rgb('#5a0c10');
+  const WC = { WALL, GROUT, VEIN, INKC, MOSS: rgb(mix(fl.wall, '#3a5a2a', 0.45)) };
   const put = (x, y, col, k) => {
     const i = (y * W + x) * 4;
     D[i] = clamp(col[0] * k, 0, 255);
@@ -95,61 +175,22 @@ function paintRoomBG(fl, variant = 0) {
       const wi = wallInfo(x, y);
       if (wi) {
         // ------------------------------------------------ Murs
-        let col = WALL;
-        let k = 1;
-        const horiz = wi.side === 'top' || wi.side === 'bottom';
-        if (st === 'basement' || st === 'caves' || st === 'womb') {
-          const size = st === 'caves' ? 13 : st === 'womb' ? 20 : 19;
-          // pierres un peu écrasées dans le sens du mur (effet de perspective)
-          const sx = horiz ? x : x * 1.35;
-          const sy = horiz ? y * 1.35 : y;
-          const s = stoneShade(sx, sy, size, seed + 5, st === 'womb' ? 2.2 : 1.7);
-          if (s.mortar) { col = st === 'womb' ? VEIN : GROUT; k = s.k; }
-          else k = s.k;
-          if (st === 'womb' && !s.mortar) k *= 0.9 + fbm(x * 0.08, y * 0.08, seed, 2) * 0.25;
-        } else if (st === 'depths') {
-          // gros blocs taillés, biseautés
-          const u = horiz ? x : y;
-          const v = horiz ? y : x;
-          const bh = 11;
-          const bw = 24;
-          const row = Math.floor(v / bh);
-          const off = row % 2 ? bw / 2 : 0;
-          const bx = (u + off) % bw;
-          const by = v % bh;
-          if (by === 0 || bx === 0) { col = GROUT; }
-          else {
-            if (by === 1 || bx === 1) k *= 1.18;
-            if (by === bh - 1 || bx === bw - 1) k *= 0.72;
-            k *= 0.86 + hash2(Math.floor((u + off) / bw), row, seed) * 0.26;
-            k *= 0.94 + hash2(x, y, seed) * 0.1;
-          }
-        } else if (st === 'planks') {
-          const u = horiz ? x : y;
-          const v = horiz ? y : x;
-          const row = Math.floor(v / 9);
-          const off = row % 2 ? 30 : 0;
-          const bx = (u + off + row * 7) % 60;
-          if (v % 9 === 0 || bx < 1) col = GROUT;
-          else if (v % 9 === 1) k *= 1.1;
-          k *= 0.9 + hash2(Math.floor((u + off + row * 7) / 60), row, 3) * 0.2;
-          k *= 0.95 + hash2(x, y, seed) * 0.08;
-        } else if (st === 'paper') {
-          const u = horiz ? x : y;
-          const v = horiz ? y : x;
-          const word = hash2(Math.floor(u / 5), Math.floor(v / 7), seed) > 0.25;
-          if (v % 7 === 3 && word && u % 5 !== 0) { col = INKC; k = 0.9; }
-          if (v % 42 === 0) col = GROUT;
-          k *= 0.95 + hash2(x, y, seed) * 0.08;
-        }
-        k *= 0.9 + fbm(x * 0.03, y * 0.03, seed + 9, 2) * 0.2;
-        // Lumière : clair près du sol, très sombre vers l'extérieur (façon Isaac)
-        k *= 1.18 - Math.pow(wi.depth, 1.3) * 0.95;
-        if (wi.side === 'top') k *= 1.06;
-        if (wi.side === 'bottom') k *= 0.72;
-        if (wi.side === 'left' || wi.side === 'right') k *= 0.88;
-        // Lèvre du mur : liseré clair contre le sol
-        if (wi.depth < 0.07) k *= 1.2;
+        const t = wi.depth;
+        const [U, V] = wallUV(x, y, wi.side, t);
+        const tx = wallTexel(U, V, st, seed + 5, WC);
+        const col = tx[0];
+        let k = tx[1];
+        // Lumière : vive près du sol, s'éteint vers l'extérieur
+        k *= 1.12 - Math.pow(t, 1.15) * 0.88;
+        if (wi.side === 'top') k *= 1.04;
+        if (wi.side === 'bottom') k *= 0.7;
+        if (wi.side === 'left' || wi.side === 'right') k *= 0.86;
+        // Pli au pied du mur et rebord éclairé, comme dans Rebirth
+        if (t < 0.025) k *= 0.5;
+        else if (t < 0.075) k *= 1.16;
+        // Angles de la pièce assombris
+        const diff = t - wi.second;
+        if (diff < 0.04) k *= 0.5 + (diff / 0.04) * 0.5;
         put(x, y, col, k);
       } else if (x >= FX && x < FX2 && y >= FY && y < FY2) {
         // ------------------------------------------------ Sol
@@ -189,7 +230,7 @@ function paintRoomBG(fl, variant = 0) {
           const hy = fbm(x * 0.07, (y + 1) * 0.07, seed + 20, 3);
           k *= 0.86 + (h0 - hy) * 3.5 + (h0 - hx) * 2 + n * 0.16;
           const v = worley(x, y, 30, seed + 30);
-          if (v.d2 - v.d1 < 0.9) { k *= 0.72; }
+          if (v.d2 - v.d1 < 0.8) { k *= 0.86; }
           if (h0 > 0.66) k *= 1.15;
         } else if (st === 'paper') {
           k *= 0.85 + n * 0.2 + (grain - 0.5) * 0.05;
@@ -228,9 +269,6 @@ function paintRoomBG(fl, variant = 0) {
   const p = new Pix(g);
   const R = RNG(seed * 13 + 5);
   // Arêtes des coins
-  g.globalAlpha = 0.55;
-  for (const [ax, ay, bx, by] of [[OX, OY, FX, FY], [OX2 - 1, OY, FX2 - 1, FY], [OX, OY2 - 1, FX, FY2 - 1], [OX2 - 1, OY2 - 1, FX2 - 1, FY2 - 1]]) p.line(ax, ay, bx, by, '#050304', 2);
-  g.globalAlpha = 1;
   // Joint noir entre mur et sol
   g.globalAlpha = 0.8;
   p.rect(FX - 1, FY - 1, FW + 2, 1, '#0a0606');
@@ -399,109 +437,222 @@ defSpr('vignette', () => {
 });
 
 // ---------------------------------------------------------------- Portes
-// Arche de pierre façon Isaac, vue « du haut » (ouverture vers le bas), 46 x 36.
-// Les autres orientations sont des rotations.
-const DOOR_W = 52;
-const DOOR_H = 38;
+// Arche de voussoirs encastrée dans le mur, vue « du haut » (ouverture vers le bas).
+// Les autres orientations sont des rotations. Peinte pixel par pixel.
+const DOOR_W = 56;
+const DOOR_H = 48;
 
-function doorColors(fl, type) {
-  let frame = shade(fl.wall, 0.08);
-  if (fl.style === 'womb') frame = '#a8403a';
-  const c = { frame, dark: shade(frame, -0.45), light: shade(frame, 0.35), wood: '#6a4424', iron: '#3a3a40' };
-  if (type === 'treasure') Object.assign(c, { frame: '#d8a830', dark: '#7a5410', light: '#fff0a0', wood: '#b88a30', iron: '#6a4a10' });
-  if (type === 'boss') Object.assign(c, { frame: '#7a1c16', dark: '#3a0606', light: '#c05048', wood: '#4a0e0a', iron: '#2a0404' });
-  if (type === 'offer') Object.assign(c, { frame: '#2a0a10', dark: '#0a0204', light: '#6a1a28', wood: '#1a0408', iron: '#000000' });
-  if (type === 'ally') Object.assign(c, { frame: '#d8e0f0', dark: '#7a88a8', light: '#ffffff', wood: '#8aa0c8', iron: '#5a6a8a' });
-  return c;
+function doorStyle(fl, type) {
+  let frame = shade(fl.wall, 0.12);
+  if (fl.style === 'womb') frame = '#b04a42';
+  if (fl.style === 'paper') frame = '#e8dcc0';
+  const S = { frame, wood: '#6e4626', band: '#3a3a42', rivet: '#a8a8b4', glow: null, teeth: false, horns: null, key: 'stone' };
+  if (type === 'treasure') Object.assign(S, { frame: '#d8a830', wood: '#9a6a24', band: '#e8c040', rivet: '#fff4c0', key: 'gem' });
+  if (type === 'boss') Object.assign(S, { frame: '#7a1e18', wood: '#3e0c08', band: '#d8ccb4', rivet: '#f4ecd8', teeth: true, horns: '#e8dcc8', key: 'skull' });
+  if (type === 'offer') Object.assign(S, { frame: '#2a0c10', wood: '#1a0406', band: '#5a0a14', rivet: '#ff3050', horns: '#5a0a14', glow: '#ff2040', key: 'eye' });
+  if (type === 'ally') Object.assign(S, { frame: '#dfe3ee', wood: '#8ea4cc', band: '#f4f6ff', rivet: '#ffffff', glow: '#fff8d0', key: 'halo' });
+  if (type === 'shop') S.key = 'coin';
+  return S;
 }
 
 function paintDoor(fl, type, state) {
   const w = DOOR_W;
   const h = DOOR_H;
-  const C = doorColors(fl, type);
-  if (type === 'secret') {
-    // trou éboulé dans le mur
-    return paint(w, h, (p) => {
-      p.poly([[12, 38], [10, 24], [15, 13], [22, 8], [31, 9], [38, 15], [42, 25], [40, 38]], '#060404');
-    }, {
-      shade: false,
-      outline: shade(fl.wall, -0.4),
-      detail: (p) => {
-        for (const [x, y] of [[6, 30], [39, 28], [10, 10], [36, 12], [22, 5]]) p.ell(x, y, 2.5, 2, shade(fl.wall, -0.1));
-        p.poly([[15, 38], [14, 25], [19, 17], [26, 13], [33, 17], [37, 26], [36, 38]], '#000000');
-      },
-    });
-  }
-  // Arche : ouverture = rectangle + voûte en demi-ellipse
-  const arch = (p, x0, y0, ww, hh, col) => {
-    p.ell(x0 + ww / 2, y0 + ww * 0.36, ww / 2, ww * 0.36, col);
-    p.rect(x0, y0 + ww * 0.36, ww, hh - ww * 0.36, col);
+  const cx = 28;
+  const c = mkCanvas(w, h);
+  const g = c.getContext('2d');
+  const img = g.createImageData(w, h);
+  const D = img.data;
+  const set = (x, y, col, k = 1, a = 255) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const i = (y * w + x) * 4;
+    D[i] = clamp(col[0] * k, 0, 255);
+    D[i + 1] = clamp(col[1] * k, 0, 255);
+    D[i + 2] = clamp(col[2] * k, 0, 255);
+    D[i + 3] = a;
   };
-  return paint(w, h, (p) => {
-    // Piliers + voûte de pierre
-    arch(p, 1, 3, 50, 35, C.frame);
-    if (type === 'boss') {
-      p.poly([[4, 16], [-2, 0], [12, 9]], '#e8dcc8');
-      p.poly([[48, 16], [54, 0], [40, 9]], '#e8dcc8');
-    }
-    if (type === 'offer') {
-      p.poly([[6, 14], [0, -2], [14, 7]], '#5a0a14');
-      p.poly([[46, 14], [52, -2], [38, 7]], '#5a0a14');
-    }
-    if (type === 'treasure') p.poly([[20, 5], [26, -1], [32, 5]], C.frame);
-  }, {
-    shade: { hi: 0.28, lo: 0.3, grad: 0.12 },
-    detail: (p) => {
-      const cx = 26;
-      const cy = 21;
-      // Joints des voussoirs et des piliers
-      for (const a of [-2.75, -2.3, -1.85, -1.3, -0.85, -0.4]) {
-        p.line(cx + Math.cos(a) * 14, cy + Math.sin(a) * 11, cx + Math.cos(a) * 24, cy + Math.sin(a) * 17, C.dark);
-      }
-      for (const y of [24, 30, 35]) { p.rect(2, y, 9, 1, C.dark); p.rect(41, y, 9, 1, C.dark); }
-      p.rect(6, 25, 1, 5, C.dark); p.rect(45, 31, 1, 4, C.dark);
-      // Clé de voûte
-      p.rr(22, 2, 8, 8, 1, C.light);
-      p.rect(23, 8, 6, 1, C.dark);
-      // Tunnel sombre qui s'enfonce
-      arch(p, 11, 10, 30, 28, '#160c08');
-      arch(p, 13, 13, 26, 25, '#0a0504');
-      arch(p, 16, 17, 20, 21, '#030202');
-      if (state !== 'open') {
-        arch(p, 11, 10, 30, 28, C.wood);
-        p.rect(25, 12, 2, 26, shade(C.wood, -0.55));
-        for (let y = 17; y < 38; y += 5) p.rect(12, y, 28, 1, shade(C.wood, -0.3));
-        p.rect(12, 21, 28, 2, C.iron);
-        p.rect(12, 32, 28, 2, C.iron);
-        for (const x of [14, 22, 29, 37]) { p.px(x, 21, '#a0a0ac'); p.px(x, 32, '#a0a0ac'); }
-        p.px(24, 27, '#d8c070'); p.px(28, 27, '#d8c070');
-        if (state === 'locked') {
-          p.rr(21, 23, 10, 9, 2, '#e8c040');
-          p.rect(23, 19, 2, 5, '#b89020');
-          p.rect(27, 19, 2, 5, '#b89020');
-          p.rect(23, 19, 6, 2, '#b89020');
-          p.rect(25, 26, 2, 4, '#3a2a08');
-          p.px(22, 24, '#fff4c0');
+  const S = doorStyle(fl, type);
+  const FR = rgb(S.frame);
+  const WOOD = rgb(S.wood);
+  const BAND = rgb(S.band);
+  const BLK = [6, 3, 3];
+  // Formes : arche extérieure (centre 28,25 ; 26 x 23) et ouverture (centre 28,27 ; 14 x 15)
+  const OYC = 25;
+  const IYC = 27;
+  const inOuter = (x, y) => (y >= OYC ? x >= 2 && x <= 53 : Math.hypot((x + 0.5 - cx) / 26, (y + 0.5 - OYC) / 23) <= 1);
+  const inInner = (x, y) => (y >= IYC ? x >= 14 && x <= 41 : Math.hypot((x + 0.5 - cx) / 14, (y + 0.5 - IYC) / 15) <= 1);
+
+  if (type === 'secret') {
+    // trou éboulé : contour irrégulier, gravats, fissures
+    const R = RNG(77);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const a = Math.atan2(y - 32, x - cx);
+        const r = 15 + Math.sin(a * 5 + 1) * 2.5 + Math.sin(a * 9) * 1.5;
+        const d = Math.hypot((x - cx) * 0.95, (y - 32) * 1.15);
+        if (y > 44 && Math.abs(x - cx) < 15) { set(x, y, BLK, 1); continue; }
+        if (d < r) {
+          const f = d / r;
+          set(x, y, rgb(shade(fl.wall, -0.5)), 0.08 + f * f * 0.5);
+        } else if (d < r + 3.5) {
+          set(x, y, rgb(fl.wall), 0.7 + hash2(x, y, 3) * 0.4);
         }
+      }
+    }
+    g.putImageData(img, 0, 0);
+    const p = new Pix(g);
+    for (let i = 0; i < 7; i++) {
+      const a = R.range(-3.0, -0.1);
+      const r0 = 17;
+      p.line(cx + Math.cos(a) * r0, 32 + Math.sin(a) * r0, cx + Math.cos(a) * (r0 + R.range(4, 9)), 32 + Math.sin(a) * (r0 + R.range(4, 9)), shade(fl.wall, -0.55));
+    }
+    for (let i = 0; i < 6; i++) p.ell(R.range(8, 48), R.range(38, 46), R.range(1.5, 3), R.range(1, 2), shade(fl.wall, R.range(-0.1, 0.2)));
+    return outlinePass(c, '#0a0606');
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const out = inOuter(x, y);
+      const inn = inInner(x, y);
+      if (!out) continue;
+      if (!inn) {
+        // ---- Cadre : voussoirs dans l'arche, blocs sur les piliers
+        let k = 1;
+        let id = 0;
+        let mortar = false;
+        if (y < OYC + 1) {
+          const a = Math.atan2(y + 0.5 - IYC, x + 0.5 - cx);
+          const u = (a + Math.PI) / Math.PI;
+          const nseg = 7;
+          const seg = Math.floor(u * nseg);
+          const loc = u * nseg - seg;
+          const r = Math.hypot(x + 0.5 - cx, y + 0.5 - IYC);
+          const thick = 1.1 / Math.max(6, r) * nseg / Math.PI * 2.2;
+          if (loc < thick || loc > 1 - thick) mortar = true;
+          id = hash2(seg, 1, 9);
+          if (seg === 3) k *= 1.12;
+          // bord intérieur éclairé, bord extérieur plus sombre
+          const rn = (r - 14) / 12;
+          k *= 1.12 - rn * 0.25;
+          if (loc < 0.28) k *= 1.08;
+        } else {
+          const left = x < cx;
+          const row = Math.floor((y - OYC) / 7.5);
+          const ly = (y - OYC) - row * 7.5;
+          if (ly < 1) mortar = true;
+          id = hash2(row, left ? 1 : 2, 11);
+          if (ly < 2.2) k *= 1.12;
+          if (ly > 6.2) k *= 0.82;
+          const edgeIn = left ? 13 - x : x - 42;
+          if (edgeIn < 2) k *= 1.15;
+          k *= left ? 1.04 : 0.9;
+        }
+        k *= 0.84 + id * 0.24;
+        k *= 0.86 + fbm(x * 0.3, y * 0.3, 5, 2) * 0.28;
+        k *= 1.08 - (y / h) * 0.25;
+        if (mortar) set(x, y, FR, 0.45);
+        else set(x, y, FR, k);
+      } else if (state === 'open') {
+        // ---- Couloir en perspective qui s'enfonce dans le noir
+        const dx = (x + 0.5 - cx) / 14;
+        const dy = (y + 0.5 - IYC) / 15;
+        const F = y < IYC ? Math.hypot(dx, dy) : Math.abs(dx);
+        let k = 0.05 + Math.pow(F, 2.4) * 0.5;
+        let col = rgb(shade(fl.wall, -0.3));
+        // sol du couloir
+        if (y > 38) {
+          col = rgb(shade(fl.floor, -0.2));
+          k = 0.18 + ((y - 38) / 10) * 0.45 - Math.abs(dx) * 0.1;
+        }
+        if (S.glow) { col = rgb(S.glow); k = 0.12 + (1 - F) * 0.35; }
+        // anneaux de profondeur (joints du couloir)
+        if (y < 38 && Math.abs(F - 0.62) < 0.05) k *= 0.6;
+        set(x, y, col, k);
       } else {
-        p.rect(19, 32, 14, 6, 'rgba(255,220,160,0.05)');
+        // ---- Battants de bois cerclés de fer
+        const lx = x - 14;
+        const plank = Math.floor(lx / 4.67);
+        const pl = lx - plank * 4.67;
+        let k = 0.82 + hash2(plank, 3, 4) * 0.22;
+        k *= 0.88 + fbm(x * 0.6, y * 0.12, plank + 3, 2) * 0.24;
+        if (pl < 0.8) k *= 0.55;
+        else if (pl < 1.8) k *= 1.12;
+        let col = WOOD;
+        if (x === 27 || x === 28) { col = BLK; k = 1; }
+        if (x === 29) k *= 1.2;
+        const band = (y >= 20 && y < 23) || (y >= 37 && y < 40);
+        if (band) { col = BAND; k = y === 20 || y === 37 ? 1.25 : 0.9; }
+        // ombre sous la voûte
+        const dx = (x + 0.5 - cx) / 14;
+        const dy = (y + 0.5 - IYC) / 15;
+        if (y < IYC && Math.hypot(dx, dy) > 0.82) k *= 0.6;
+        set(x, y, col, k);
       }
-      if (type === 'boss') {
-        p.rr(21, 0, 10, 9, 3, '#ece2d0');
-        p.rect(23, 3, 2, 2, '#1a0404');
-        p.rect(27, 3, 2, 2, '#1a0404');
-        p.rect(25, 6, 2, 1, '#1a0404');
-        for (let i = 0; i < 6; i++) {
-          p.poly([[12, 17 + i * 3.5], [15, 18.5 + i * 3.5], [12, 20 + i * 3.5]], '#f0e8d8');
-          p.poly([[40, 17 + i * 3.5], [37, 18.5 + i * 3.5], [40, 20 + i * 3.5]], '#f0e8d8');
-        }
-      }
-      if (type === 'treasure') { p.rect(24, 0, 4, 3, '#fff6c0'); p.px(25, 4, '#ffffff'); }
-      if (type === 'shop') Font.draw(p.g, '$', 24, 1, '#f0d060');
-      if (type === 'offer') { p.rect(23, 3, 6, 5, '#ff2040'); p.px(24, 4, '#ffd0d8'); }
-      if (type === 'ally') { p.circ(26, 5, 2.5, '#fff8c0'); p.px(23, 2, '#fff8c0'); p.px(29, 2, '#fff8c0'); }
-    },
-  });
+    }
+  }
+  // Seuil sombre sous l'ouverture
+  for (let x = 14; x <= 41; x++) { set(x, h - 1, BLK, 1); }
+  g.putImageData(img, 0, 0);
+  const p = new Pix(g);
+  if (state !== 'open') {
+    for (const x of [16, 22, 33, 39]) { p.px(x, 21, S.rivet); p.px(x, 38, S.rivet); }
+    // anneaux de tirage
+    p.ring(25.5, 30.5, 2, S.band);
+    p.ring(31.5, 30.5, 2, S.band);
+    if (state === 'locked') {
+      p.rr(23, 26, 11, 10, 2, '#e8c040');
+      p.rect(24, 27, 9, 2, '#fff0a0');
+      p.rect(25, 21, 2, 6, '#b89020');
+      p.rect(30, 21, 2, 6, '#b89020');
+      p.rect(25, 21, 7, 2, '#b89020');
+      p.rect(27, 30, 3, 2, '#3a2a08');
+      p.rect(28, 32, 1, 2, '#3a2a08');
+    }
+  }
+  // Clé de voûte
+  if (S.key === 'skull') {
+    p.rr(22, 0, 12, 10, 4, '#ece2d0');
+    p.rect(24, 3, 3, 3, '#1a0404');
+    p.rect(29, 3, 3, 3, '#1a0404');
+    p.rect(27, 7, 2, 1, '#1a0404');
+    p.rect(24, 9, 8, 2, '#d8ccb4');
+    for (let x = 25; x < 32; x += 2) p.px(x, 10, '#1a0404');
+  } else if (S.key === 'gem') {
+    p.poly([[28, 0], [33, 5], [28, 10], [23, 5]], '#fff0a0');
+    p.poly([[28, 2], [31, 5], [28, 8], [25, 5]], '#e04040');
+    p.px(27, 3, '#ffffff');
+  } else if (S.key === 'eye') {
+    p.ell(28, 5, 5, 3.5, '#ff3050');
+    p.ell(28, 5, 2, 3, '#1a0004');
+  } else if (S.key === 'halo') {
+    p.ring(28, 3, 5, '#fff4b0', 2);
+  } else if (S.key === 'coin') {
+    p.circ(28, 5, 4.5, '#e0b030');
+    Font.draw(g, '$', 26, 2, '#7a5010');
+  } else {
+    p.rr(23, 1, 10, 9, 1, shade(S.frame, 0.25));
+    p.rect(24, 8, 8, 1, shade(S.frame, -0.3));
+  }
+  if (S.horns) {
+    p.poly([[5, 18], [-1, 0], [13, 9]], S.horns);
+    p.poly([[51, 18], [57, 0], [43, 9]], S.horns);
+    p.line(4, 14, 3, 6, shade(S.horns, 0.3));
+    p.line(52, 14, 53, 6, shade(S.horns, 0.3));
+  }
+  if (S.teeth) {
+    for (let i = 0; i < 6; i++) {
+      p.poly([[14, 24 + i * 4], [18, 25.5 + i * 4], [14, 27 + i * 4]], '#f4ecd8');
+      p.poly([[42, 24 + i * 4], [38, 25.5 + i * 4], [42, 27 + i * 4]], '#f4ecd8');
+    }
+    for (let i = 0; i < 5; i++) {
+      const a = -2.6 + i * 0.5;
+      p.poly([[28 + Math.cos(a) * 14, 27 + Math.sin(a) * 15], [28 + Math.cos(a) * 10, 27 + Math.sin(a) * 11], [28 + Math.cos(a + 0.25) * 14, 27 + Math.sin(a + 0.25) * 15]], '#f4ecd8');
+    }
+  }
+  if (type === 'treasure') {
+    p.px(8, 22, '#ffffff'); p.px(9, 21, '#fff6c0'); p.px(46, 30, '#fff6c0');
+  }
+  return outlinePass(c, '#0a0606');
 }
 
 function doorSprite(fl, type, state, dir) {
