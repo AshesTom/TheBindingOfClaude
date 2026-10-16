@@ -107,7 +107,8 @@ class Tear {
     this.dead = true;
     if (this.f.explosive && !hitEnemy) explode(this.x, this.y, { radius: 28, dmg: this.dmg * 1.5, hurtPlayer: false, small: true });
     const col = this.color === 'tearB' ? ['#b8d4ff', '#ffffff'] : this.color === 'tearP' ? ['#a8e060', '#e0ffc0'] : this.color === 'tearR' ? ['#ff5a6a', '#ffd0a0'] : this.color === 'tearO' ? ['#ff9a5a', '#ffd0a0'] : ['#5aa8f0', '#b8dcff', '#ffffff'];
-    Particles.sparks(this.x, this.y - this.z, col, 5, { speed: 60, z: this.z });
+    Particles.add({ kind: 'splash', x: this.x, y: this.y - this.z, color: col[0], light: col[1], size: 4 + this.size * 1.5, life: 0.28 });
+    Particles.sparks(this.x, this.y - this.z, col, 3, { speed: 40, z: this.z });
     if (G.room) G.room.decal(this.x, this.y, col[0], 1, 0.35);
     if (Math.random() < 0.5) Sound.play('splat');
   }
@@ -195,7 +196,7 @@ class Bullet {
     if (this.dead) return;
     this.dead = true;
     const c = BULLET_STYLES[this.style] ? BULLET_STYLES[this.style][0] : '#d02020';
-    Particles.sparks(this.x, this.y - this.z, [c, shade(c, 0.4)], 4, { speed: 40, z: this.z });
+    Particles.add({ kind: 'splash', x: this.x, y: this.y - this.z, color: c, light: shade(c, 0.5), size: 3 + this.size, life: 0.25 });
     if (G.room && this.style === 'red') G.room.decal(this.x, this.y, '#6a1010', 2, 0.5);
   }
 

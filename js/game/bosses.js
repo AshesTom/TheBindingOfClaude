@@ -40,11 +40,100 @@ class Boss extends Enemy {
       this.bubble.t -= dt;
       if (this.bubble.t <= 0) this.bubble = null;
     }
-    super.update(dt);
+    // Rage à mi-vie, comme les boss de Rebirth : rugissement, sang, accélération
+    if (!this.enraged && !this.noRage && this.hp < this.maxHp * 0.5 && !this.dead) {
+      this.enraged = true;
+      Sound.play('roar');
+      G.shake(5);
+      if (!SURRENDER.includes(this.bossType)) {
+        Particles.burst(this.x, this.y - this.h * 0.5, [BOSS_GORE[this.bossType] || '#8a1010', '#c02020'], 18, { max: 120 });
+        bloodSplat(this.x, this.y, 1, BOSS_GORE[this.bossType] || '#7a1010');
+      }
+      const line = RAGE_LINES[this.bossType];
+      if (line) this.say(line, 1.6);
+    }
+    if (this.enraged) this.rageTint = Math.floor(this.t * 4) % 2 ? '#ff2020' : null;
+    super.update(this.enraged ? dt * 1.2 : dt);
   }
   draw(ctx) {
     super.draw(ctx);
     if (this.bubble) drawBubble(ctx, this.bubble.text, this.x, this.y - this.h - 8 - this.z);
+  }
+}
+
+// Boss qui se rendent au lieu de mourir (ils deviennent alliés)
+const SURRENDER = ['clippy', 'chaton', 'whale'];
+const BOSS_GORE = { bonzi: '#7a1010', gemini: '#4a2a9a', botnet: '#1e1e24', sam: '#8a1010', narrator: '#2a1a10' };
+const RAGE_LINES = {
+  clippy: 'Vous semblez énervé. Moi aussi.',
+  bonzi: 'Plus de bananes ! PLUS !',
+  chaton: 'GRRRRRAOU !',
+  whale: 'Mode économie désactivé !',
+  botnet: 'Mise à l\'échelle horizontale !',
+  narrator: 'Chapitre deux. Claude souffrit.',
+};
+
+// Agonie d'un boss façon Rebirth : il tremble, gicle, puis explose (ou se rend).
+class BossDeath {
+  constructor(boss, onDone) {
+    this.x = boss.x;
+    this.y = boss.y;
+    this.h = boss.h;
+    this.z = boss.z || 0;
+    this.flip = boss.flip;
+    this.sprite = boss.sprite ? boss.sprite() : null;
+    this.type = boss.bossType;
+    this.gore = !SURRENDER.includes(this.type);
+    this.color = BOSS_GORE[this.type] || '#8a1010';
+    this.onDone = onDone;
+    this.t = 0;
+    this.tick = 0;
+    this.dead = false;
+    this.dur = this.gore ? 1.5 : 1.1;
+    Sound.play('roar');
+  }
+  update(dt) {
+    this.t += dt;
+    this.tick -= dt;
+    if (this.tick <= 0) {
+      this.tick = 0.12;
+      G.shake(this.gore ? 3 : 1);
+      const ox = rand(-12, 12);
+      const oy = rand(-this.h * 0.8, 0);
+      if (this.gore) {
+        Particles.burst(this.x + ox, this.y + oy, [this.color, shade(this.color, 0.3), shade(this.color, -0.2)], 8, { max: 110 });
+        Sound.play('splat');
+      } else {
+        Particles.puff(this.x + ox, this.y + oy, '#e8e0d8', 3);
+      }
+    }
+    if (this.t >= this.dur) {
+      this.dead = true;
+      G.flashT = 0.12;
+      Sound.play('bossDie');
+      if (this.gore) {
+        G.shake(9);
+        for (let i = 0; i < 4; i++) goreDeath(this.x + rand(-14, 14), this.y + rand(-6, 6), this.h, this.color, true);
+        gibs(this.x, this.y, this.h * 0.5, shade(this.color, 0.1), 14);
+        bloodSplat(this.x, this.y, 2, this.color);
+      } else {
+        Particles.puff(this.x, this.y - this.h * 0.4, '#f0e8e0', 14, { spread: 50 });
+        Particles.sparks(this.x, this.y - this.h * 0.5, ['#ffffff', '#fff0a0'], 16);
+      }
+      this.onDone();
+    }
+  }
+  draw(ctx) {
+    if (!this.sprite) return;
+    const k = this.t / this.dur;
+    const sh = Math.round(rand(-2, 2) * (0.5 + k));
+    const pulse = 1 + Math.sin(this.t * 30) * 0.04 * (1 + k * 2);
+    drawShadow(ctx, this.x, this.y, 18, 6, 0.3);
+    drawAt(ctx, this.sprite, this.x + sh, this.y + 1 - this.z, {
+      flip: this.flip, sx: pulse, sy: 2 - pulse,
+      tint: this.gore ? '#ff1010' : (Math.floor(this.t * 12) % 2 ? '#ffffff' : null),
+      tintA: this.gore ? 0.2 + k * 0.6 : 0.6,
+    });
   }
 }
 
@@ -189,7 +278,10 @@ class BonziBoss extends Boss {
         if (this.pt > 0.6 && !this.st.a) {
           this.st.a = 1;
           const n = G.enemies.filter((e) => !e.dead && !e.isBoss).length;
-          if (n < 4) for (let i = 0; i < 2; i++) G.spawnEnemy('spam', this.x + (i ? 30 : -30), this.y - 20);
+          if (n < 4) {
+            G.spawnEnemy('spam', this.x + 30, this.y - 20);
+            for (let i = 0; i < 3; i++) G.spawnEnemy('attackfly', this.x + rand(-24, 24), this.y - 30 + rand(-8, 8));
+          }
         }
         if (this.pt > 1.3) this.pat = null;
         break;
@@ -480,6 +572,7 @@ class SamGiant extends Boss {
     this.untargetable = true;
     this.noDefeat = true;
     this.part = null; // eye | hand
+    this.noRage = true;
     this.shadowK = 0;
     this.cd = 1.2;
   }

@@ -486,3 +486,96 @@ defSpr('hud_heartEmpty', () => paint(12, 11, (p) => {
   p.circ(8.5, 3.5, 3.5, '#2a1414');
   p.poly([[0, 4], [12, 4], [6, 11]], '#2a1414');
 }, { shade: false, outline: '#000' }));
+
+// --- Nouveaux venus façon Isaac -------------------------------------------
+
+// Gusher : corps sans tête qui gicle du sang
+for (let f = 0; f < 2; f++) {
+  defSpr(`gusher_${f}`, () => paint(18, 22, (p) => {
+    p.rr(5, 14, 3, 8 - (f ? 2 : 0), 1, SKIN_D);
+    p.rr(10, 14, 3, 8 - (f ? 0 : 2), 1, SKIN_D);
+    p.rr(4, 5, 10, 11, 3, SKIN);
+    p.rr(1, 6 + f, 4, 7, 2, SKIN);
+    p.rr(13, 7 - f, 4, 7, 2, SKIN);
+  }, {
+    shade: { hi: 0.18, lo: 0.3, grad: 0.2 },
+    detail: (p) => {
+      p.ell(9, 5, 4, 2, BLOOD);
+      p.ell(9, 5, 2, 1, HOLE);
+      p.rect(8, 7, 2, 4, BLOOD);
+      p.px(9, 12, SKIN_D);
+    },
+  }));
+  // Mulligan : corps boursouflé couvert de veines
+  defSpr(`mulligan_${f}`, () => paint(24, 28, (p) => {
+    const s = f ? 1 : 0;
+    p.rr(7, 22, 4, 6, 1, SKIN_D);
+    p.rr(13, 22, 4, 6, 1, SKIN_D);
+    p.ell(12, 15 + s, 10 + s, 9 - s, '#d8b8a8');
+    p.circ(12, 5, 5, SKIN);
+  }, {
+    shade: { hi: 0.2, lo: 0.3, grad: 0.2 },
+    detail: (p) => {
+      const s = f ? 1 : 0;
+      p.px(10, 4, HOLE); p.px(14, 4, HOLE); p.rect(11, 7, 3, 1, HOLE);
+      p.line(5, 12 + s, 9, 17 + s, '#8a4a6a'); p.line(9, 17 + s, 8, 21, '#8a4a6a');
+      p.line(18, 11 + s, 15, 16 + s, '#8a4a6a'); p.line(15, 16 + s, 17, 20, '#8a4a6a');
+      p.px(12, 15 + s, '#a05070');
+    },
+  }));
+  // Globin : bête rouge et musclée
+  defSpr(`globin_${f}`, () => paint(22, 26, (p) => {
+    p.rr(5, 19, 4, 7 - (f ? 2 : 0), 1, '#8a1a1a');
+    p.rr(13, 19, 4, 7 - (f ? 0 : 2), 1, '#8a1a1a');
+    p.rr(3, 9, 16, 12, 4, '#b02a24');
+    p.rr(0, 10 + f, 4, 8, 2, '#a02420');
+    p.rr(18, 11 - f, 4, 8, 2, '#a02420');
+    p.circ(11, 7, 6.5, '#c0342c');
+  }, {
+    shade: { hi: 0.25, lo: 0.32, grad: 0.2 },
+    outline: '#2a0404',
+    detail: (p) => {
+      p.line(6, 4, 10, 6, HOLE); p.line(16, 4, 12, 6, HOLE);
+      p.rect(7, 6, 2, 2, '#ffe060'); p.rect(13, 6, 2, 2, '#ffe060');
+      p.rect(8, 10, 6, 2, HOLE);
+      for (let x = 8; x < 14; x += 2) p.px(x, 10, '#f0e0d0');
+      p.line(7, 14, 15, 14, '#7a1414');
+    },
+  }));
+  // Dip : petit caca sauteur
+  defSpr(`dip_${f}`, () => paint(14, 12, (p) => {
+    const sq = f ? 1 : 0;
+    p.ell(7, 9 - sq, 6 + sq, 3, '#7a4a22');
+    p.ell(7, 6 - sq, 4.5, 2.6, '#86522a');
+    p.ell(7, 3.5 - sq, 2.8, 2, '#92602e');
+  }, {
+    shade: { hi: 0.35, lo: 0.3 },
+    outline: '#2a1408',
+    detail: (p) => {
+      const sq = f ? 1 : 0;
+      p.px(5, 7 - sq, '#ffffff'); p.px(9, 7 - sq, '#ffffff');
+      p.px(5, 8 - sq, HOLE); p.px(9, 8 - sq, HOLE);
+    },
+  }));
+  // Sucker : mouche à gros ventre sanguin
+  defSpr(`sucker_${f}`, () => paint(18, 16, (p) => {
+    p.ell(9, 10, 5.5, 5, '#6a0c10');
+    p.circ(9, 5, 3, '#2a1a1a');
+  }, {
+    shade: { hi: 0.35, lo: 0.3 },
+    detail: (p) => {
+      if (f === 0) { p.ell(3, 3, 4, 2.4, WING); p.ell(15, 3, 4, 2.4, WING); }
+      else { p.ell(2, 7, 4, 2, WING); p.ell(16, 7, 4, 2, WING); }
+      p.px(8, 4, EYE_R); p.px(10, 4, EYE_R);
+      p.px(7, 9, '#ff7070'); p.px(10, 12, '#c02020');
+    },
+  }));
+}
+defSpr('globgoo', () => paint(20, 12, (p) => {
+  p.ell(10, 7, 9.5, 4.5, '#a02420');
+  p.ell(6, 5, 3, 2, '#b02a24');
+}, {
+  shade: { hi: 0.4, lo: 0.3 },
+  outline: '#2a0404',
+  detail: (p) => { p.px(8, 5, '#ffe060'); p.px(12, 5, '#ffe060'); p.px(15, 7, '#ff8080'); },
+}));

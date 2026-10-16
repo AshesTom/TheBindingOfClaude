@@ -406,7 +406,10 @@ class RunScene extends PlayScene {
     if (e.isBoss) {
       if (e.noDefeat) return;
       const alive = this.enemies.some((o) => o.isBoss && !o.dead && o !== e);
-      if (!alive) this.onBossDefeated(e.bossType, e);
+      if (!alive) {
+        for (const b of this.bullets) b.pop();
+        this.misc.push(new BossDeath(e, () => this.onBossDefeated(e.bossType, e)));
+      } else goreDeath(e.x, e.y, e.h, BOSS_GORE[e.bossType] || '#8a1010', true);
       return;
     }
     const p = this.player;
@@ -421,6 +424,9 @@ class RunScene extends PlayScene {
       if (r < 0.4) this.pickups.push(Pickup.pop('soul', x, y));
       else if (r < 0.7) for (let i = 0; i < 3; i++) this.pickups.push(Pickup.pop('coin', x, y));
       else this.pickups.push(Pickup.pop(choice(['key', 'bomb', 'chest']), x, y));
+    } else if (c.t === 'poop' && Math.random() < 0.12 && this.floorIdx < 4) {
+      // un petit dip s'échappe du tas, comme dans Isaac
+      this.spawnEnemy('dip', x, y, { noSpawn: true, noChampion: true });
     } else if (c.t === 'poop' && Math.random() < 0.12 + this.player.s.luck * 0.02) {
       this.pickups.push(Pickup.pop(choice(['coin', 'coin', 'heartHalf', 'bomb']), x, y));
     }
@@ -543,7 +549,7 @@ class RunScene extends PlayScene {
 
   // ------------------------------------------------------------ Portes et déplacement
   doorsOpen() {
-    return this.roomData.cleared && !this.enemies.some((e) => !e.dead && !e.isSeg) && !this.vs;
+    return this.roomData.cleared && !this.enemies.some((e) => !e.dead && !e.isSeg) && !this.vs && !this.misc.some((m) => m instanceof BossDeath);
   }
 
   movePlayer(p, dx, dy) {

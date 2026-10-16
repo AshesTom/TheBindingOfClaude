@@ -68,7 +68,14 @@ un bonus. Décor : portes en arche de pierre (dorée pour le trésor, dents et c
 boss), rochers, rochers marqués d'une croix, cacas destructibles, feux de camp, pics et trous.
 Claude pleure des larmes bleues.
 
-**Contenu** : 16 types d'ennemis, 8 boss, 44 objets (passifs et actifs : Régénérer la
+**Sang et gore façon Rebirth** : grandes éclaboussures qui restent au sol, morceaux de
+chair qui rebondissent, larmes qui éclatent en gouttelettes, ennemis qui gonflent sous les
+coups et surgissent dans un nuage de fumée. Les **boss enragent à mi-vie** (rugissement,
+teinte rouge, plus rapides) et **agonisent** avant d'exploser — sauf ceux qui se rendent.
+Ennemis en plus : gusher (né d'un gaper décapité), mulligan, globin (se reforme),
+dip (s'échappe des cacas) et sucker. Mini-carte avec icônes (crâne, couronne, $…).
+
+**Contenu** : 21 types d'ennemis, 8 boss, 44 objets (passifs et actifs : Régénérer la
 Réponse, Ctrl+Alt+Suppr, Rate Limit, Ultrathink…), boutique du Lama, coffres, rochers
 marqués, salles secrètes à la bombe.
 

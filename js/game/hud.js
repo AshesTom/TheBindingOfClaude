@@ -91,6 +91,15 @@ function drawHUD(ctx, s) {
 }
 
 const MM = { w: 9, h: 7 };
+// Petites icônes de la carte, façon Isaac
+const MAP_ICONS = {
+  boss: { c: '#f4ecd8', p: '.###.|#.#.#|#####|.###.|.#.#.' },
+  treasure: { c: '#f0c030', p: '#.#.#|#####|#####' },
+  shop: { c: '#f0d060', p: '.###.|##...|.###.|...##|.###.' },
+  secret: { c: '#b0b0d0', p: '###|..#|.#.|...|.#.' },
+  offer: { c: '#ff3050', p: '#...#|.###.|#####|.###.' },
+  ally: { c: '#a0d0ff', p: '.###.|#...#|.###.' },
+};
 function drawMinimap(ctx, s, big = false) {
   const d = s.dungeon;
   const cur = s.roomData;
@@ -118,14 +127,23 @@ function drawMinimap(ctx, s, big = false) {
     ctx.fillRect(x - 1, y - 1, cw + 2, ch + 2);
     ctx.fillStyle = col;
     ctx.fillRect(x, y, cw, ch);
-    const icon = {
-      boss: '#c02020', treasure: '#f0c030', shop: '#60c060', secret: '#8a8aff', offer: '#ff3050', ally: '#60a0ff',
-    }[r.type];
-    if (icon) {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(x + cw / 2 - 2, y + ch / 2 - 2, 4, 4);
-      ctx.fillStyle = icon;
-      ctx.fillRect(x + cw / 2 - 1.5, y + ch / 2 - 1.5, 3, 3);
+    const ic = MAP_ICONS[r.type];
+    if (ic) {
+      const rows = ic.p.split('|');
+      const ix = Math.round(x + cw / 2 - rows[0].length / 2);
+      const iy = Math.round(y + ch / 2 - rows.length / 2);
+      const sc = big ? 2 : 1;
+      for (let j = 0; j < rows.length; j++) {
+        for (let i = 0; i < rows[j].length; i++) {
+          if (rows[j][i] !== '#') continue;
+          const px = big ? Math.round(x + cw / 2 + (i - rows[j].length / 2) * sc) : ix + i;
+          const py = big ? Math.round(y + ch / 2 + (j - rows.length / 2) * sc) : iy + j;
+          ctx.fillStyle = '#000';
+          ctx.fillRect(px + 1, py + 1, sc, sc);
+          ctx.fillStyle = ic.c;
+          ctx.fillRect(px, py, sc, sc);
+        }
+      }
     }
   }
   ctx.restore();

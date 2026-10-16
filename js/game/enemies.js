@@ -55,6 +55,7 @@ class Enemy {
     }
     this.hp -= dmg;
     this.flashT = 0.09;
+    this.hitT = 0.12;
     Sound.play('hit');
     if (Math.random() < 0.6) Particles.burst(this.x, this.y - this.h * 0.4, [G.fl ? G.fl.blood : '#6a1a14', shade(G.fl ? G.fl.blood : '#6a1a14', 0.2)], 3, { max: 50 });
     if (this.onHit) this.onHit(dmg, src);
@@ -73,10 +74,10 @@ class Enemy {
     this.dead = true;
     Sound.play('kill');
     const bc = G.fl ? G.fl.blood : '#6a1a14';
-    Particles.burst(this.x, this.y - this.h * 0.4, [bc, shade(bc, 0.25), shade(bc, -0.2)], 14, { max: 100 });
-    Particles.burst(this.x, this.y - this.h * 0.4, [shade(bc, 0.15), '#d8b8a0', shade(bc, -0.3)], 5, { max: 70, sizes: [2, 3] });
+    const ink = this.def.gore || bc;
+    if (this.isBoss) { /* agonie gérée par BossDeath */ } else if (this.def.gore !== false) goreDeath(this.x, this.y, this.h, ink, this.r >= 10);
+    else Particles.puff(this.x, this.y - this.h * 0.4, '#c8c0b8', 6);
     if (this.champion && G.pickups) G.pickups.push(Pickup.pop(this.champion === '#ff3030' ? 'heart' : this.champion === '#ffd040' ? 'coin' : this.champion === '#40a0ff' ? 'soulHalf' : 'bomb', this.x, this.y));
-    if (G.room) G.room.splat(this.x, this.y, bc, 8, this.r + 4);
     if (this.def.onDeath) this.def.onDeath(this);
     G.onEnemyKilled(this);
   }
@@ -117,6 +118,7 @@ class Enemy {
   update(dt) {
     this.t += dt;
     this.flashT -= dt;
+    this.hitT = Math.max(0, (this.hitT || 0) - dt);
     if (this.spawning > 0) {
       this.spawning -= dt;
       return;
@@ -171,11 +173,12 @@ class Enemy {
       alpha = k;
     }
     if (this.st.squash) { sx *= 1 + this.st.squash; sy *= 1 - this.st.squash; }
+    if (this.hitT > 0) { sx *= 1 + this.hitT * 1.1; sy *= 1 - this.hitT * 0.9; }
     if (this.def.alpha) alpha = this.def.alpha(this);
     const shw = this.def.shadow !== undefined ? this.def.shadow : Math.max(5, c.width * 0.35);
     if (shw) drawShadow(ctx, this.x, this.y, shw, shw * 0.35, 0.3 * (alpha === undefined ? 1 : alpha));
     const fy = this.flying ? -6 + Math.sin(this.t * 5) * 2 : 0;
-    drawAt(ctx, c, this.x, this.y + 1 + fy - this.z, { sx, sy, flip: this.flip, alpha, tint: this.flashT > 0 ? '#ffffff' : this.slowT > 0 ? '#80ff60' : this.champion, tintA: this.flashT > 0 ? 0.75 : this.champion ? 0.35 + Math.sin(this.t * 6) * 0.08 : 0.25 });
+    drawAt(ctx, c, this.x, this.y + 1 + fy - this.z, { sx, sy, flip: this.flip, alpha, tint: this.flashT > 0 ? '#ffffff' : this.slowT > 0 ? '#80ff60' : this.champion || this.rageTint, tintA: this.flashT > 0 ? 0.75 : this.rageTint ? 0.25 : this.champion ? 0.35 + Math.sin(this.t * 6) * 0.08 : 0.25 });
   }
 }
 
@@ -255,6 +258,7 @@ const ENEMY_DEFS = {
       e.seek(p.x, p.y, e.speed, dt);
       if (Math.random() < dt * 0.6 && G.room) G.room.decal(e.x + rand(-2, 2), e.y, BLOOD, 1, 0.5);
     },
+    onDeath: (e) => { if (Math.random() < 0.35) G.spawnEnemy('gusher', e.x, e.y, { noSpawn: true, noChampion: true }); },
     sprite: (e) => 'gaper_' + (Math.floor(e.t * 4) % 2),
   },
   fatty: {
@@ -468,6 +472,89 @@ const ENEMY_DEFS = {
     },
     alpha: (e) => (e.st.phase === 'fade' ? 1 - e.st.pt / 0.45 : e.st.phase === 'in' ? e.st.pt / 0.45 : 0.9),
     sprite: (e) => 'wizoob_' + (Math.floor(e.t * 4) % 2),
+  },
+  gusher: {
+    name: 'un gusher', hp: 8, r: 6, h: 20, speed: 46,
+    ai: (e, dt) => {
+      if (e.cd <= 0) {
+        e.cd = rand(0.5, 1.1);
+        const a = Math.random() * TAU;
+        e.st.d = { x: Math.cos(a), y: Math.sin(a) };
+        if (Math.random() < 0.35) {
+          // jet de sang en cloche
+          const p = G.player;
+          const tx = p.x + rand(-40, 40);
+          const ty = p.y + rand(-30, 30);
+          const tt = 0.9;
+          G.bullets.push(new Bullet(e.x, e.y - 18, (tx - e.x) / tt, (ty - e.y) / tt, { style: 'red', size: 3, z: 18, vz: 120, grav: 300, life: 3, through: true, dmg: e.dmgUnit, src: e.name }));
+        }
+      }
+      if (e.st.d && e.step(e.st.d.x * e.speed * dt, e.st.d.y * e.speed * dt)) e.cd = 0;
+      if (Math.random() < dt * 14) Particles.add({ kind: 'drop', x: e.x + rand(-1, 1), y: e.y, z: e.h - 4, vx: rand(-20, 20), vy: rand(-10, 10), vz: rand(60, 110), color: BLOOD, size: 1, life: 2, decal: true });
+    },
+    sprite: (e) => 'gusher_' + (Math.floor(e.t * 7) % 2),
+  },
+  mulligan: {
+    name: 'un mulligan', hp: 16, r: 9, h: 26, speed: 24,
+    ai: (e, dt) => {
+      const p = G.player;
+      // il fuit Claude
+      const n = norm(e.x - p.x, e.y - p.y);
+      if (dist(e.x, e.y, p.x, p.y) < 120) e.step(n.x * e.speed * dt, n.y * e.speed * dt);
+      else e.seek(p.x, p.y, e.speed * 0.4, dt);
+      e.flip = n.x > 0;
+    },
+    onDeath: (e) => { for (let i = 0; i < 3; i++) G.spawnEnemy('fly', e.x + rand(-8, 8), e.y + rand(-6, 6), { noSpawn: true }); },
+    sprite: (e) => 'mulligan_' + (Math.floor(e.t * 3) % 2),
+  },
+  globin: {
+    name: 'un globin', hp: 14, r: 8, h: 24, speed: 42,
+    ai: (e, dt) => { const p = G.player; e.seek(p.x, p.y, e.speed, dt); },
+    onDeath: (e) => { if (!e.st.final) { const g = G.spawnEnemy('globgoo', e.x, e.y, { noSpawn: true, noChampion: true }); g.st.reform = 3; } },
+    sprite: (e) => 'globin_' + (Math.floor(e.t * 5) % 2),
+  },
+  globgoo: {
+    name: 'un globin', hp: 6, r: 8, h: 8, speed: 0, heavy: true, contact: false,
+    ai: (e, dt) => {
+      e.st.reform -= dt;
+      e.st.squash = Math.sin(e.t * 8) * 0.06 * (e.st.reform < 1 ? 3 : 1);
+      if (e.st.reform <= 0) {
+        // il se reforme !
+        e.dead = true;
+        G.spawnEnemy('globin', e.x, e.y, { noSpawn: true, noChampion: true });
+        Particles.burst(e.x, e.y, ['#a02420', '#c0342c'], 6);
+        Sound.play('spawn');
+      }
+    },
+    sprite: () => 'globgoo',
+  },
+  dip: {
+    name: 'un dip', hp: 4, r: 5, h: 10, speed: 85, gore: '#5a3414',
+    ai: (e, dt) => {
+      if (!e.st.hop) {
+        if (e.cd <= 0) {
+          const a = Math.random() < 0.5 ? angTo(e.x, e.y, G.player.x, G.player.y) : Math.random() * TAU;
+          e.st.hop = 0.35;
+          e.st.dx = Math.cos(a);
+          e.st.dy = Math.sin(a);
+        }
+      } else {
+        e.st.hop -= dt;
+        if (e.step(e.st.dx * e.speed * dt, e.st.dy * e.speed * dt) || e.st.hop <= 0) { e.st.hop = 0; e.cd = rand(0.4, 1); }
+      }
+    },
+    sprite: (e) => 'dip_' + (e.st.hop ? 1 : 0),
+  },
+  sucker: {
+    name: 'un sucker', hp: 7, r: 6, h: 14, speed: 44, flying: true,
+    ai: (e, dt) => {
+      const p = G.player;
+      const a = angTo(e.x, e.y, p.x, p.y) + Math.sin(e.t * 4) * 0.6;
+      e.step(Math.cos(a) * e.speed * dt, Math.sin(a) * e.speed * dt);
+      e.flip = p.x < e.x;
+    },
+    onDeath: (e) => ring(e.x, e.y - 8, 4, 100, { style: 'red', size: 3, dmg: e.dmgUnit, src: e.name }, Math.PI / 4),
+    sprite: (e) => 'sucker_' + (Math.floor(e.t * 18) % 2),
   },
   // --- Sbires des boss
   spam: {

@@ -96,6 +96,24 @@ const Particles = {
       } else if (p.kind === 'text') {
         p.z += p.vz * dt;
         p.vz *= 0.95;
+      } else if (p.kind === 'gib') {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vz -= 340 * dt;
+        p.z += p.vz * dt;
+        if (p.z <= 0) {
+          p.z = 0;
+          if (p.bounces > 0) {
+            p.bounces--;
+            p.vz = -p.vz * 0.35;
+            p.vx *= 0.5;
+            p.vy *= 0.5;
+          } else {
+            if (this.decalTarget) this.decalTarget(p.x, p.y, p.color, p.size + 1);
+            L.splice(i, 1);
+            continue;
+          }
+        }
       }
       if (p.t >= p.life) L.splice(i, 1);
     }
@@ -121,6 +139,30 @@ const Particles = {
         ctx.globalAlpha = 1 - k;
         drawRing(ctx, p.x, p.y, p.size * (0.3 + k * 0.9), p.color);
         ctx.restore();
+      } else if (p.kind === 'gib') {
+        ctx.fillStyle = '#1a0606';
+        ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y - p.z) - 1, p.size + 2, p.size + 2);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.size, p.size);
+      } else if (p.kind === 'pop') {
+        ctx.save();
+        ctx.globalAlpha = 1 - k;
+        drawBlob(ctx, p.x, p.y, p.size * (0.5 + k * 0.7), k < 0.3 ? '#ffffff' : p.color);
+        ctx.restore();
+      } else if (p.kind === 'splash') {
+        // éclatement de larme : couronne de gouttelettes qui s'écarte
+        const r = 1.5 + k * p.size;
+        ctx.fillStyle = p.color;
+        for (let a = 0; a < 6; a++) {
+          const an = a * 1.047 + p.size;
+          ctx.fillRect(Math.round(p.x + Math.cos(an) * r), Math.round(p.y + Math.sin(an) * r * 0.75), k < 0.6 ? 2 : 1, k < 0.6 ? 2 : 1);
+        }
+        if (k < 0.45) {
+          ctx.save();
+          ctx.globalAlpha = 1 - k * 2;
+          drawBlob(ctx, p.x, p.y, Math.max(1, p.size * 0.5 * (1 - k)), p.light || '#ffffff');
+          ctx.restore();
+        }
       } else if (p.kind === 'text') {
         ctx.save();
         ctx.globalAlpha = 1 - k * k;

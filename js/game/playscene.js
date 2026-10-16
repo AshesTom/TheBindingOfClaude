@@ -46,7 +46,7 @@ class PlayScene {
     const e = new Enemy(type, x, y, o);
     if (o.jitter) { e.x += rand(-8, 8); e.y += rand(-8, 8); }
     this.enemies.push(e);
-    if (!o.noSpawn) Particles.puff(x, y, '#3a2a2a', 4);
+    if (!o.noSpawn) spawnPoof(x, y);
     return e;
   }
 
